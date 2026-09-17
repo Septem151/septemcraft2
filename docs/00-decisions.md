@@ -110,11 +110,27 @@ Consequences:
   `I = P/V = (impact × RPM) / RPM`, current tracks the generator's `su/RPM` impact
   rating and is independent of shaft speed. A transformer is a gearbox; that is the
   intended teaching hook.
+- **Every device has a voltage rating.** Below it the device does not run; above it
+  there are consequences, whose severity is Q1. Because RPM *is* voltage, "this lamp
+  needs 64 V" is the same statement as Create's "this machine needs 32 RPM".
 
-## 7. Current types
+## 7. Current types - AC and DC, with distinct jobs
 
-**Both AC and DC exist from the start.** The player
-chooses per circuit, and conversion between AC and DC is expected to exist.
+**Both AC and DC exist from the start, and transformers work only on AC.** That
+constraint is what gives each current type its job.
+
+- **AC is the grid.** Any circuit whose voltage has to change must be AC, so every
+  long haul is AC - stepped up at the source, stepped down at the far end. See *Transmission range* for why a long haul
+  wants high voltage at all.
+- **DC is the local domain.** Battery internals, the control circuits of *Control*,
+  and sensors and instrumentation are DC: a local circuit needs a specific voltage,
+  but never needs to change it again once it has it. Stepping happens on the AC side,
+  ahead of the rectifier - a low-voltage control circuit hanging off a high-voltage
+  line is transformed down as AC and then rectified - so the DC domain sits **downstream** of a transformer.
+- **Rectifiers and inverters** sit at the boundaries between the two.
+
+The choice is made by the job: a run that needs stepping is AC, and a low-voltage
+local circuit has no reason to be.
 
 ## 8. Wiring - three form factors
 
@@ -196,6 +212,41 @@ In scope:
 Out of scope: **trains** - no electrified rail, pantographs, overhead line, or
 battery locomotives.
 
-## 15. First vertical slice
+## 15. First vertical slice - generators
 
-**Generators.**
+**Generators**, built as an **axial stack of alternator segments on a Create shaft**.
+
+```
+                    side view
+
+ shaft in                                        out
+    ═══▶ [SEG] [SEG] [SEG] [SEG] [TERMINAL] ───▶ to the grid
+          └──── coils, in series ────┘
+```
+
+A generator is a line of identical segments threaded on one shaft, each a real block
+carrying magnet and windings, **capped at the far end by a terminal**. Per *Multiblocks* there is no formation step:
+segments count because they are in line on
+the same shaft, and a segment placed off the line is simply a segment doing nothing.
+Stack length is how a generator grows - physically long, industrial, and at home in a
+plant room.
+
+**Electricity leaves at the terminal and nowhere else.** The coils run in series down
+the stack and converge there; a segment does not have output of its own, so there is no
+tapping into the middle of a machine.
+
+**The scaling law follows from *Electrical quantities*.** Each segment contributes a
+fixed stress impact (su/RPM). Since `I = P/V = (impact ×
+RPM) / RPM`, that is exactly the definition of current:
+
+| Physical fact         | Electrical consequence                      |
+|-----------------------|---------------------------------------------|
+| Segments in the stack | **Current** - each segment adds a fixed `I` |
+| Shaft speed           | **Voltage**                                 |
+| The two multiplied    | **Watts**, equal to the stress drawn        |
+
+So a longer stack is a higher-current machine, gearing the shaft faster is a
+higher-voltage one, and the stress Create sees is the wattage produced - power is
+conserved across the generator. The two ways to build a bigger
+generator are to lengthen the stack or to gear it up, and they are not interchangeable:
+they land in different places on the transmission-loss curve.
