@@ -1,9 +1,9 @@
-package io.gifsync.septempack;
+package io.gifsync.septemcraft;
 
 import net.minecraftforge.fml.common.Mod;
 
-@Mod(SeptemPackMod.MODID)
-public class SeptemPackMod
+@Mod(SeptemCraftMod.MODID)
+public class SeptemCraftMod
 {
 	public static final String MODID = "septemcraft";
 }
