@@ -57,11 +57,18 @@ Load-bearing decisions that constrain implementation work:
 - **Create 6.0.8 and AE2 15.4.10 are hard dependencies** - no soft-dep branching, no standalone
   mode. They are *not yet declared*; adding them means both a `fg.deobf(...)` dependency in
   `build.gradle` and a `[[dependencies.septemcraft]]` block in `mods.toml`.
+- **Electrical quantities**: RPM → volts, total SU → watts, current derived as P/V. "SU" is the
+  total stress figure (`impact × RPM`). Watts and total SU are one currency. Transmission loss
+  follows from this and scales with current.
 - Rotation is the only power source; **batteries are the sole FE boundary** (that is the only place
   Forge Energy may be touched - AE2's Energy Acceptor is the downstream consumer).
 - No block-by-block cables, no multiblock formation step, no new ores or worldgen.
 - Out of scope: electro-processing recipes, heating devices, trains/electrified rail.
 
 When a task depends on something in `01-open-questions.md`, surface the question rather than
-picking an answer - particularly Q1 (the Create↔electrical quantity mapping), which blocks the
-simulation core, all tooltips, and all balance.
+picking an answer.
+
+**This project is early in ideation - `00-decisions.md` is a snapshot, not a contract.** Anything
+in it may be reopened, rewritten or removed at any time, including the items summarized above.
+Read the doc rather than trusting this summary, and never argue that something is fixed
+merely because it is currently written there.

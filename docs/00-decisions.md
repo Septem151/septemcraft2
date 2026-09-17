@@ -7,6 +7,10 @@ This file records decisions that are **settled**. Anything not here is either in
 `01-open-questions.md` or has not been raised yet. Do not infer a decision from
 silence - if it is not written down, it is not decided.
 
+Settled does not mean permanent. The project is early in ideation: any entry here
+may be reopened, rewritten or removed at any time. Refer to sections by name rather
+than by number - they get reordered, and numbers cited elsewhere go stale.
+
 ---
 
 ## 1. Platform & repository
@@ -78,12 +82,41 @@ Create rotation  →  generator  →  electrical grid  →  battery  →  FE  �
   battery collects generated electricity and exposes it as FE, which is how AE2
   gets powered. Internally the grid uses the mod's own electrical quantities.
 
-## 6. Current types
+## 6. Electrical quantities
+
+**RPM → volts, total SU → watts, current derived as P/V.**
+
+| Create quantity           | Electrical        | Status  |
+|---------------------------|-------------------|---------|
+| Shaft speed (RPM)         | **Voltage**       | primary |
+| Total network stress (su) | **Watts**         | primary |
+| -                         | **Current** = P/V | derived |
+
+"SU" here is the **total stress** figure: Create's `impact × RPM` product, the number
+the goggles show against capacity.
+
+**Current is a derived readout, not a primary quantity.** Nameplates, tooltips and
+Ponder scenes are written in volts and watts - `1,024 W @ 128 V`, the way a real
+genset is rated - because that is the form Create's goggles have already taught.
+
+Consequences:
+
+- **Watts and total SU are one currency.** Power is conserved across the generator.
+  There is no separate electrical economy to balance against Create's.
+- **Equal Create cost buys equal power.** One generator geared to 128 RPM and four
+  of the same generator at 32 RPM draw the same total stress and produce the same
+  wattage. They differ only in V and I.
+- **Gearing trades voltage for current at constant power.** Since
+  `I = P/V = (impact × RPM) / RPM`, current tracks the generator's `su/RPM` impact
+  rating and is independent of shaft speed. A transformer is a gearbox; that is the
+  intended teaching hook.
+
+## 7. Current types
 
 **Both AC and DC exist from the start.** The player
 chooses per circuit, and conversion between AC and DC is expected to exist.
 
-## 7. Wiring - three form factors
+## 8. Wiring - three form factors
 
 Deliberately **no block-by-block cable/conduit**. Three distinct forms, each with
 a job:
@@ -94,14 +127,14 @@ a job:
 | **Busbars**                   | High-current rigid distribution inside a plant room - the spine that breakers, meters and machine feeds tap off.       |
 | **Flat surface wiring**       | Thin conduit hugging walls, floors and ceilings for interior runs: lamps, switches, the "wire your house" layer.       |
 
-## 8. Multiblocks
+## 9. Multiblocks
 
 **Composed of working parts - no formation step.** There is no "build the
 pattern and hit it with a hammer" moment and no controller-plus-structure-check.
 A transformer is a core, plus coils, plus whatever else, each a real block doing a
 real job, working because the parts are adjacent and correctly wired.
 
-## 9. Materials
+## 10. Materials
 
 **No new ores and no new worldgen.** Materials come from Create, vanilla, and AE2.
 
@@ -117,15 +150,17 @@ are built from copper windings, magnetic shafts, and the cost of
 building them is a central part of the experience - not an afterthought to a
 balance number.
 
-## 10. Transmission range
+## 11. Transmission range
 
 **Long-distance, same-dimension, unloaded-chunk aware.** Hundreds to thousands of
 blocks across the Overworld. Critically, a line must keep working when the middle
 of it is not loaded - it behaves as a logical link rather than requiring every
-chunk in between to tick. No cross-dimension power. Power decreases over distance unless
-using high voltage AC, like real life.
+chunk in between to tick. No cross-dimension power.
 
-## 11. Devices
+**Distance causes loss, and loss depends on current** - a consequence of the
+quantity mapping. Stepping up the voltage is therefore how a long haul is run.
+
+## 12. Devices
 
 In scope:
 
@@ -138,7 +173,7 @@ In scope:
 
 Out of scope: heating and electro-processing devices.
 
-## 12. Control
+## 13. Control
 
 **Two bridged layers.**
 
@@ -148,7 +183,7 @@ Out of scope: heating and electro-processing devices.
 - **Redstone converters** in both directions, so redstone can read and drive the
   control layer and vice versa.
 
-## 13. Create integration surface
+## 14. Create integration surface
 
 In scope:
 
@@ -161,6 +196,6 @@ In scope:
 Out of scope: **trains** - no electrified rail, pantographs, overhead line, or
 battery locomotives.
 
-## 14. First vertical slice
+## 15. First vertical slice
 
 **Generators.**
