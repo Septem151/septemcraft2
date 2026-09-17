@@ -98,6 +98,8 @@ the goggles show against capacity.
 **Current is a derived readout, not a primary quantity.** Nameplates, tooltips and
 Ponder scenes are written in volts and watts - `1,024 W @ 128 V`, the way a real
 genset is rated - because that is the form Create's goggles have already taught.
+Protection hardware is the exception: ampacities and breaker ratings are given in amps,
+because current is the quantity they act on.
 
 Consequences:
 
@@ -110,38 +112,47 @@ Consequences:
   `I = P/V = (impact × RPM) / RPM`, current tracks the generator's `su/RPM` impact
   rating and is independent of shaft speed. A transformer is a gearbox; that is the
   intended teaching hook.
-- **Every device has a voltage rating.** Below it the device does not run; above it
-  there are consequences, whose severity is Q1. Because RPM *is* voltage, "this lamp
-  needs 64 V" is the same statement as Create's "this machine needs 32 RPM".
+- **Every device has a voltage rating.** Below it the device does not run; from there up
+  to the ceiling of its voltage class it runs normally, and above that ceiling it fails
+  per *Failure model*. Because RPM *is* voltage, "this lamp needs 64 V" is the same
+  statement as Create's "this machine needs 32 RPM".
 
 ## 7. Current types - AC and DC, with distinct jobs
 
 **Both AC and DC exist from the start, and transformers work only on AC.** That
 constraint is what gives each current type its job.
 
-- **AC is the grid.** Any circuit whose voltage has to change must be AC, so every
-  long haul is AC - stepped up at the source, stepped down at the far end. See *Transmission range* for why a long haul
-  wants high voltage at all.
+- **AC is the grid.** Generation is AC - an alternator produces it natively. Any
+  circuit whose voltage has to change must be AC, so every long haul is AC - stepped
+  up at the source, stepped down at the far end. See *Transmission range* for why a
+  long haul wants high voltage at all.
 - **DC is the local domain.** Battery internals, the control circuits of *Control*,
   and sensors and instrumentation are DC: a local circuit needs a specific voltage,
   but never needs to change it again once it has it. Stepping happens on the AC side,
   ahead of the rectifier - a low-voltage control circuit hanging off a high-voltage
   line is transformed down as AC and then rectified - so the DC domain sits **downstream** of a transformer.
-- **Rectifiers and inverters** sit at the boundaries between the two.
+  Every DC circuit begins at a rectifier or at a battery.
+- **Rectifiers and inverters** sit at the boundaries between the two, and each loses a
+  small fixed fraction of the power crossing it.
 
 The choice is made by the job: a run that needs stepping is AC, and a low-voltage
 local circuit has no reason to be.
 
 ## 8. Wiring - three form factors
 
-Deliberately **no block-by-block cable/conduit**. Three distinct forms, each with
-a job:
+Three distinct forms, each with a job:
 
 | Form                          | Role                                                                                                                   |
 |-------------------------------|------------------------------------------------------------------------------------------------------------------------|
 | **Catenary wires** (IE-style) | Long-haul outdoor transmission. Slung between insulators on poles, sagging, crossing terrain without occupying blocks. |
 | **Busbars**                   | High-current rigid distribution inside a plant room - the spine that breakers, meters and machine feeds tap off.       |
 | **Flat surface wiring**       | Thin conduit hugging walls, floors and ceilings for interior runs: lamps, switches, the "wire your house" layer.       |
+
+**Bare or insulated is a property of the form, and it is about contact, not capacity.**
+Catenary wire is bare and kept out of reach on poles. Busbars are bare, which is why they
+belong in a plant room rather than a corridor. Surface wiring is jacketed, because it runs
+where people walk past it. See *Shock* for what a bare conductor costs to touch, and
+*Failure model* for why a jacket is not what lets a conductor carry a voltage.
 
 ## 9. Multiblocks
 
@@ -158,13 +169,26 @@ real job, working because the parts are adjacent and correctly wired.
   Chosen because AE2's meteorites already provide a findable resource with a real
   exploration loop, Create already provides the processing verb, and "magnetic rock
   from space" justifies itself.
-- **Conductor: copper**, from vanilla, processed through Create's recipes to produce wires
-  and other crafting items.
+
+  Sky stone is crushed to dust, the dust is mixed with iron and heated into a
+  magnetic alloy ingot, and the ingot is pressed into a magnet. Each alternator
+  segment carries one.
+
+- **Conductor: copper**, from vanilla, drawn into wire in a single step. Wire is the
+  branch point of the chain: strung as-is for catenary, wound into the coils of
+  alternator segments, or jacketed with rubber to make insulated wire for interior runs.
+
+- **Insulator: clay, fired into porcelain.** Clay is dug from riverbeds and lush caves
+  and fired through Create. Porcelain is what carries voltage class per *Failure model*,
+  so stepping up class is a new string of discs.
+
+- **Jacket: rubber, from dandelion latex.** Dandelions are crushed for latex and the latex
+  is vulcanized into sheet, which wraps wire for interior runs. The jacket is touch
+  protection per *Shock*; it has no bearing on the voltage a conductor can carry.
 
 **Design emphasis:** *energy production requires resource gathering.* Generators
-are built from copper windings, magnetic shafts, and the cost of
-building them is a central part of the experience - not an afterthought to a
-balance number.
+are built from copper windings and magnets, and the cost of building them is a central
+part of the experience - not an afterthought to a balance number.
 
 ## 11. Transmission range
 
@@ -199,7 +223,134 @@ Out of scope: heating and electro-processing devices.
 - **Redstone converters** in both directions, so redstone can read and drive the
   control layer and vice versa.
 
-## 14. Create integration surface
+## 14. Failure model
+
+**Nothing fails because of power.** Damage is always caused by current or by voltage,
+and those two fail in different shapes.
+
+| Cause       | Physically        | Shape of failure                          | Protection                        |
+|-------------|-------------------|-------------------------------------------|-----------------------------------|
+| **Current** | heat              | cumulative, builds and drains             | breakers, sized in amps           |
+| **Voltage** | dielectric stress | faster the further over, never cumulative | arresters, and relays on breakers |
+| **Power**   | the work budget   | no damage - the network stalls            | generation capacity               |
+
+Current damage is earned slowly and can be caught while it is happening. Voltage damage
+is much faster and at the extreme leaves no time at all, so it is met by clamping the
+voltage rather than by opening the circuit. Both are covered under *Protection*.
+
+Power is not a damage cause at all. Watts and total SU being one currency per
+*Electrical quantities*, demand beyond what the generators supply is Create's own stress
+overload - the rotational network stalls and everything on it stops together. Nothing is
+harmed, and the answer is more generation.
+
+### Current - the thermal chain
+
+Every conductor carries an **ampacity**: catenary wire, busbars, surface wiring,
+generator coils, transformer windings, and contacts. Each holds a heat state that rises
+while current is over ampacity and drains while it is not. The rate rises with how far
+over the rating the current is, so a larger overload fails sooner and one curve sets
+every threshold.
+
+| State       | Condition                                    | Effect                                          |
+|-------------|----------------------------------------------|-------------------------------------------------|
+| **Hot**     | over ampacity                                | visible, audible, readable by sensors; no damage |
+| **Trip**    | heat reaching the limit, protection present  | the breaker opens; nothing is damaged            |
+| **Burnout** | heat reaching the limit, unprotected         | the component is destroyed                       |
+
+Under ampacity nothing heats and nothing is at risk; transmission loss still scales with
+current per *Transmission range*.
+
+A **dead short** is instantaneous. Current is unbounded, no heat accumulates first, and
+the result is an arc.
+
+**Burnout leaves wreckage in place.** A block becomes a burnt variant that stays where it
+stood and is recyclable - crushing or melting it returns a fraction of its copper, and
+its magnets are lost. A catenary wire snaps and drops nothing; its poles and insulators
+survive.
+
+### Voltage - the dielectric wall
+
+Every component carries a **voltage class, and the class ceiling is its withstand
+voltage**. Between its own operating rating and that ceiling a device runs normally -
+voltage inside the class is free. Above the ceiling it breaks down, and how quickly
+follows how far over it is: a modest over-voltage takes a moment, a gross one leaves no
+time at all. That is the same shape as the thermal curve on the current side, with the one
+difference that matters - **dielectric stress does not accumulate.** The clock resets the
+instant voltage drops, and a component that has ridden out an over-voltage is no weaker
+for it.
+
+**Three classes: LV, MV, HV.** Where the boundaries sit is open.
+
+**Class is carried by insulators, never by a conductor's jacket.** What is rated is
+whatever holds a conductor away from grounded structure - the insulator on a catenary
+pole, the standoff a busbar sits on. Air does the rest, which is why a bare span can be
+the highest-voltage thing in the world. A higher-class insulator is physically a bigger
+one - the same material in greater quantity, stepped through Create's mechanical
+crafting - and that is legible from the ground: you can read a line's class off its poles.
+
+**Over-voltage on a span is a flashover.** The arc tracks across the insulator to the
+pole. The insulator shatters and the span it held drops, because nothing is carrying it
+any more; the conductor itself is undamaged. That inverts the over-current case, where the
+wire snaps and the poles and insulators survive, so the two failures stay distinguishable
+on sight. A flashover is a conductor-to-ground fault, so it is also a short, and its arc
+is the one described in *Arcs*.
+
+**A span's class is that of its weakest insulator.** Stepping a line-up means walking its
+length and replacing every insulator on it. Miss one, and that pole is where the line
+fails.
+
+**Under-voltage damages nothing.** Above its operating rating, a device meets a sagging
+voltage by running slower and nothing else: a Create load's impact is rated in su/RPM, so
+its power demand falls with speed, and a sag lowers `P` and `V` together while leaving
+`I = P/V` unchanged. Below the rating the device cuts out, per *Electrical quantities*,
+and sits there unharmed. A brownout costs speed and then motion; it never costs hardware.
+
+### Arcs
+
+An arc is the terminal event of both causes - a dead short on the current side, a
+breakdown on the voltage side.
+
+An arc flashes, cracks, sets fire to nearby flammables, and damages and blinds nearby
+entities. The faulted component is destroyed outright and drops nothing. **Terrain is
+not damaged.** The exception is a **battery, which explodes for real**, because its
+stored energy has somewhere to go. Violence scales with what was feeding the fault.
+
+### Protection
+
+**Circuit breakers are multiblocks built to open a circuit.** Per *Multiblocks* they are
+composed of working parts with no formation step, and per *Control* a breaker is something
+the control circuit can trip. What decides when it trips is the sensing driving it, and
+there is one for each cause:
+
+- **Over-current.** The breaker opens before heat reaches the limit, so a fault stops at
+  the trip state instead of reaching burnout. Sized in amps.
+- **Over-voltage.** A relay watching line voltage trips the breaker. This catches the
+  modest over-voltage that takes a moment to break down - a generator geared too fast, or
+  a circuit run into the wrong class. It cannot catch a gross one, which arcs before
+  anything mechanical can move.
+
+**Surge arresters** stand in front of what a breaker cannot reach. An arrester clamps:
+above its rating it conducts the excess to ground at the speed of the fault instead of
+waiting for a mechanism, which is exactly why it protects where opening a circuit cannot.
+It pays by absorbing that energy itself, and a large enough surge destroys it - which is
+the point. An arrester is cheap and a transformer is not, and a spent one is visible on
+the pole that took the hit.
+
+## 15. Shock
+
+**A bare energized conductor is dangerous to touch.** That hazard is the whole reason
+insulation exists in this mod; per *Failure model* a jacket has nothing to do with voltage
+class.
+
+Catenary wire and busbars are bare, so both are live whenever the grid is. Surface wiring
+is jacketed and safe to be around. The intent is that bare conductors live where people
+are not: catenary slung overhead out of reach, busbars in a plant room entered
+deliberately rather than a corridor walked down.
+
+As with arcs, severity follows the circuit - what a contact costs scales with what is
+behind it.
+
+## 16. Create integration surface
 
 In scope:
 
@@ -212,7 +363,7 @@ In scope:
 Out of scope: **trains** - no electrified rail, pantographs, overhead line, or
 battery locomotives.
 
-## 15. First vertical slice - generators
+## 17. First vertical slice - generators
 
 **Generators**, built as an **axial stack of alternator segments on a Create shaft**.
 
@@ -231,7 +382,7 @@ the same shaft, and a segment placed off the line is simply a segment doing noth
 Stack length is how a generator grows - physically long, industrial, and at home in a
 plant room.
 
-**Electricity leaves at the terminal and nowhere else.** The coils run in series down
+**Electricity leaves at the terminal as AC, and nowhere else.** The coils run in series down
 the stack and converge there; a segment does not have output of its own, so there is no
 tapping into the middle of a machine.
 
