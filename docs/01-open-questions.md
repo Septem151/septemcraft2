@@ -53,11 +53,12 @@ geometry. Whether spent arresters turn storms into a maintenance loop sits behin
 
 ## Q14. Where oil comes from
 
-*Blocking: transformers, and so every stepped circuit.*
+*Blocking: refilling a transformer after an overload.*
 
-*Materials* settles oil as the transformer coolant and *Transformers* settles what its
-absence costs. Its chain is open: Create has no oil, so oil needs a source the way rubber
-got dandelions. Yield decides whether filling a transformer is a one-off or an upkeep.
+*Materials* settles oil as the transformer coolant and *Transformers* settles that nothing
+but overload consumes it. Its chain is open: Create has no oil, so oil needs a source the
+way rubber got dandelions. Yield decides what recovering from an overload costs, and so how
+harsh the boil-off, dry, burnout escalation is in practice.
 
 Water stands in for oil until the chain is decided.
 
@@ -87,3 +88,38 @@ DC circuit by contact because low voltage makes that safe, is open.
 open. Contacts carry current and so want an ampacity and a thermal state per *Failure
 model*; whether rating follows part count, as it does for generators and transformers, is
 open with them.
+
+## Q18. Volts per winding, and how many windings a block holds
+
+*Blocking: transformer sizes, and so the footprint of every substation.*
+
+*Transformers* settles that a coil's voltage rating is its winding count times a fixed
+volts-per-winding, and that a block holds windings up to a cap. Neither number is set, and
+between them they decide how many blocks a voltage costs: at 32 V a winding and 8 windings
+to a block a 1,024 V coil is four blocks tall, and at 64 V a winding it is two. The copper
+budget a block contributes - the third constant, the one that turns block count into watts
+- is open alongside them.
+
+All three sit behind Q9, which sets the voltages the classes take.
+
+## Q19. What a tap is
+
+*Blocking: voltage transformers, current transformers, and the control wiring of every
+instrument.*
+
+*Transformers* settles the bushing as the block a circuit's conductor lands on, and settles
+the tap as something else: what a current transformer's reading leaves by, and what a
+voltage transformer's primary takes off a circuit carrying on past. What a tap physically
+is, and whether it carries a pair of conductors as a circuit does or a single control
+cable, is open. Whether a busbar and a catenary span are branched the same way sits with
+it.
+
+## Q20. What decides which two coils pair
+
+*Blocking: transformer placement, and so the layout of a plant room.*
+
+*Transformers* settles a transformer as two adjacent coils with no formation step. A row of
+three or more transformer blocks is therefore ambiguous - which neighbour a coil couples to
+is undecided, as is whether a coil already paired is still available to the one on its far
+side. Whether the blocks carry a facing that resolves it, whether bushing placement does,
+or whether a run longer than two is simply refused, is open.

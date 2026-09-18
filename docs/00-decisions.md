@@ -163,8 +163,8 @@ parts are adjacent and correctly wired.
 
 **Parts are blocks; consumables and fittings are contents.** A block that needs filling
 is filled by interacting with it, not by placing something next to it. Coils and oil go
-*into* a transformer winding rather than beside it, and what a block holds is part of
-what it is - a winding with six coils is a different device from the same block with two.
+*into* a transformer block rather than beside it, and what a block holds is part of
+what it is - a coil of six windings is a different device from the same block with two.
 
 ## 10. Materials
 
@@ -191,7 +191,7 @@ what it is - a winding with six coils is a different device from the same block 
   is vulcanized into sheet, which wraps wire for interior runs. The jacket is touch
   protection per *Shock*; it has no bearing on the voltage a conductor can carry.
 
-- **Coolant: oil.** Oil fills transformer windings and carries heat out of them per
+- **Coolant: oil.** Oil fills transformer coils and carries heat out of them per
   *Transformers*. Where oil comes from is open.
 
 **Design emphasis:** *energy production requires resource gathering.* Generators
@@ -210,41 +210,136 @@ quantity mapping. Stepping up the voltage is therefore how a long haul is run.
 
 ## 12. Transformers
 
-**Coils are turns, and a winding is a block filled with coils.** A transformer's ratio is
-the turn counts of its windings against each other, so the ratio is set by how many coils
-are stuffed into each one. Re-rating a transformer means re-winding it. The resulting
-ratio is readable in the Engineer's Goggles overlay.
+### Construction
 
-Three arrangements, separated by how many windings they carry and how the line meets them:
+**A transformer block holds one rod, and windings go onto it.** The block is placed bare
+and wound by hand, one winding at a time. A rod with its windings on it is a **coil**, and
+the winding count is what a ratio is made of.
 
-| | Windings | The line | Produces |
+**A transformer is two coils.** The smallest is 2x1 - two blocks side by side, each one
+tall, each holding a coil. Per *Multiblocks* there is no formation step: they are a
+transformer because they are adjacent. **Both coils must carry at least one winding**; a
+bare rod on either side is not a transformer.
+
+**Stacking blocks makes a coil taller**, lengthening its rod and giving it room for more
+windings. A transformer is two coils of equal height; where they differ it is the height of
+the shorter, and the blocks above that are idle.
+
+**Bushings are blocks, and a circuit needs two of them.** A bushing is placed on a top edge
+of the transformer and is where a conductor lands. Every circuit is two conductors, so each
+coil takes two bushings - **four on a two-coil transformer**: two for the circuit feeding
+the primary, two for the circuit the secondary drives. On a taller transformer they sit on
+the top block.
+
+**A bushing carries voltage class**, being the insulator that holds a conductor off the
+transformer, per *Failure model*. Re-classing a transformer is replacing bushings, as
+stepping a line up is walking it replacing insulators, and **a transformer's class is that
+of its weakest bushing** - the same rule a span has. A taller porcelain stack on the high
+side is readable from the ground.
+
+**Primary and secondary are symmetric.** Whichever pair of bushings is fed is the input;
+step-up and step-down are the same hardware wired the other way round.
+
+### The two knobs
+
+**Windings are volts.** A winding is worth a fixed number of volts, and a coil's voltage
+rating is its winding count times that constant. The ratio is not a property of its own: it
+is the two ratings against each other. So a transformer is read off a nameplate as
+`128 V ⇄ 256 V` rather than as 1:2, and two transformers of the same ratio are different
+machines - `32 V ⇄ 64 V` and `128 V ⇄ 256 V` are both 1:2, and neither can do the other's
+job.
+
+**A coil's winding rating is a ceiling, not a floor** - the inverse of the device rating in
+*Electrical quantities*, because a coil is not a load. Fed under its rating a transformer
+works and the output scales down with the ratio. Fed over it the core saturates:
+magnetizing current climbs steeply and the coil heats. That is current damage, so it runs
+the thermal chain of *Failure model* rather than the dielectric wall.
+
+**Blocks are watts.** A block contributes one rod, a fixed budget of copper shared among
+the windings on it, so a coil's ampacity is that budget times its block count over its
+winding count. Multiplied by the voltage rating the winding count cancels, and the block
+count is all that is left:
+
+```
+  V = windings x volts-per-winding
+  I = copper-budget x blocks / windings
+  P = V x I = volts-per-winding x copper-budget x blocks
+```
+
+A transformer's wattage is therefore its size and nothing else. Winding it for high voltage
+buys volts and spends amps, winding it low does the reverse, and the watts do not move.
+**Windings place a transformer on the voltage scale; blocks decide how much power it
+moves.**
+
+**High voltage is consequently physically large.** A high-class coil needs many windings,
+and many windings need many blocks to carry any current at all. A substation's class is
+legible from its silhouette.
+
+### Arrangements
+
+Three, separated by how many coils they carry and how the line meets them:
+
+| | Coils | The line | Produces |
 |---|---|---|---|
 | **Power transformer** | two | terminates into the primary | power, at a new voltage |
 | **Voltage transformer** | two | continues past; a branch taps it | a proportional voltage - a reading |
 | **Current transformer** | one | passes through the core | a proportional current - a reading |
 
-**Power transformers and voltage transformers are multiblocks of at least 2x1**, because
-two windings need two blocks. Size above that minimum is what a bigger transformer is.
-
-**A current transformer is a single block: a loop the conductor passes through.** It has
-one winding because the conductor threading it is already the primary, a single turn. Its
-ratio is therefore its coil count against that one turn. The line is not broken, not
-diverted, and loses nothing.
+**A power transformer and a voltage transformer are the same hardware**, and the wiring is
+the entire difference. A power transformer's primary is in series: the circuit ends at its
+bushings and everything it carries crosses the core. A voltage transformer's primary sits
+across a circuit that carries on past, and only a trickle diverts through it. The block has
+no mode to set, so a voltage transformer is wound to the line it watches and a high-class
+one is correspondingly large.
 
 ```
-     power transformer                  current transformer
-     line terminates                    line threads the core
+  power transformer                 voltage transformer
+  the circuit terminates at it      the circuit carries on; a branch taps it
 
-  ═══╗                                        ┌──────┐
-     ╠══[ core ]══╗                   ════════╪══════╪════════▶
-  ═══╝            ║                           └──┬───┘
-                  ╚═══▶                          ▼
+  ════╗                             ════╦══════════════▶
+  ════╣                             ════╬══════════════▶
+   ┌──╨──┐                           ┌──╨──┐
+   │  T  │                           │  T  │
+   └──╥──┘                           └──╥──┘
+      ╠════▶ power                      ╠════▶ reading
+      ╚════▶                            ╚════▶
 ```
 
-**Oil is cooling.** Windings are filled with oil as well as coils, and the oil carries
-heat out of the core. A transformer run without it heats under load per *Failure model*.
+Wiring a voltage transformer in series is a real mistake with a real consequence: a coil
+sized for a reading, placed in a power path, runs the thermal chain and burns out.
 
-**Instrument transformers are AC-only**, as every transformer is per *Current types*.
+**A current transformer is a single block**, its rod closed into a loop that a conductor
+threads. It is a different construction rather than a different wiring - it carries one
+coil because the conductor through it is already the primary, a single turn, so the coil's
+winding count is its ratio against that one. It takes **a bushing where the conductor
+enters and one where it leaves** - one conductor passing through, not a circuit's pair,
+since a core around both would see them cancel - and **a tap** for the reading. The line is
+not broken, not diverted, and loses nothing.
+
+```
+  current transformer
+  one conductor threads the core
+
+    bushing      ┌──────┐      bushing
+  ═════╤═════════╪══════╪═════════╤═══▶
+                 └──┬───┘
+                    ▼ tap
+```
+
+### Oil and loss
+
+**Oil is cooling, and only overload consumes it.** Coils are filled with oil as well as
+windings. At or under ampacity the oil is never touched; over it the oil boils off as it
+carries heat out of the core, and a dry coil heats far faster. The escalation is overload,
+boil-off, dry, burnout - a well-built transformer never asks for a refill and an abused one
+does.
+
+**A transformer loses a small fixed fraction of the power crossing it**, less than a
+rectifier or an inverter loses, so stepping up for a haul pays over any distance worth
+stepping up for. The loss is a deduction and not heat: per *Failure model* nothing under
+ampacity heats.
+
+**Transformers are AC-only** per *Current types*, the instrument arrangements included.
 
 ## 13. Devices
 
@@ -308,7 +403,7 @@ harmed, and the answer is more generation.
 ### Current - the thermal chain
 
 Every conductor carries an **ampacity**: catenary wire, busbars, surface wiring,
-generator coils, transformer windings, and contacts. Each holds a heat state that rises
+generator coils, transformer coils, and contacts. Each holds a heat state that rises
 while current is over ampacity and drains while it is not. The rate rises with how far
 over the rating the current is, so a larger overload fails sooner and one curve sets
 every threshold.
@@ -360,6 +455,11 @@ is the one described in *Arcs*.
 **A span's class is that of its weakest insulator.** Stepping a line-up means walking its
 length and replacing every insulator on it. Miss one, and that pole is where the line
 fails.
+
+**The one place over-voltage does current damage is a saturating coil.** Per
+*Transformers* a coil fed over its winding rating draws magnetizing current rather than
+breaking down, so it runs the thermal chain above and not this wall. Its bushings still
+carry its class, and flashing one of those over is the ordinary dielectric case.
 
 **Under-voltage damages nothing.** Above its operating rating, a device meets a sagging
 voltage by running slower and nothing else: a Create load's impact is rated in su/RPM, so
