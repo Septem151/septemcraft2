@@ -47,7 +47,7 @@ the `data` run config is commented out in `build.gradle`; uncomment it to add da
 
 - `docs/00-decisions.md` - **settled** decisions only. Its own rule: *"Do not infer a decision from
   silence - if it is not written down, it is not decided."*
-- `docs/01-open-questions.md` - explicitly undecided questions and open topics.
+- `docs/legacy/01-open-questions.md` - explicitly undecided questions and open topics.
 - `docs/03-code-principles.md` - the nine rules all code follows. Cite by number in review.
 
 Load-bearing decisions that constrain implementation work:

@@ -4,7 +4,7 @@ Status: **ideation**. No code changes yet.
 Last updated: 2026-09-17
 
 This file records decisions that are **settled**. Anything not here is either in
-`01-open-questions.md` or has not been raised yet. Do not infer a decision from
+`legacy/01-open-questions.md` or has not been raised yet. Do not infer a decision from
 silence - if it is not written down, it is not decided.
 
 Settled does not mean permanent. The project is early in ideation: any entry here

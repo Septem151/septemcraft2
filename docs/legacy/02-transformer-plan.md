@@ -1,10 +1,10 @@
 # Transformer Implementation Plan
 
-Scope: transformers only, per *Transformers* in `00-decisions.md`, plus the thermal chain in
+Scope: transformers only, per *Transformers* in `../00-decisions.md`, plus the thermal chain in
 *Failure model* that it defers to. Generators, wiring, batteries, breakers and devices are out of
 scope - not implemented, and not stubbed beyond the interfaces named below.
 
-Sources: `00-decisions.md` sections 12 (Transformers), 15 (Failure model) and 7 (Current types).
+Sources: `../00-decisions.md` sections 12 (Transformers), 15 (Failure model) and 7 (Current types).
 `01-open-questions.md` Q9, Q18, Q19 and Q20 are blocking and are not to be answered here.
 
 ## Standing rules
@@ -14,7 +14,7 @@ Sources: `00-decisions.md` sections 12 (Transformers), 15 (Failure model) and 7 
    the failure mode this plan exists to prevent.
 2. **No magic numbers.** Every quantity traces to a named constant in `TransformerConstants`
    carrying a comment that cites its section or Q-number.
-3. Anything encoding a design decision cites `00-decisions.md` section N in its javadoc.
+3. Anything encoding a design decision cites `../00-decisions.md` section N in its javadoc.
 4. **The model layer is plain Java, free of Forge types.** Block entities, capabilities and
    rendering are a thin shell over it, added later. An agent that finds this untenable reports back
    rather than importing Forge into the model.

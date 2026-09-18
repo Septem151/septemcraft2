@@ -3,7 +3,7 @@
 Status: **ideation**.
 Last updated: 2026-09-17
 
-Companion to `00-decisions.md`. Everything here is undecided. Once a question is
+Companion to `../00-decisions.md`. Everything here is undecided. Once a question is
 answered its entry is **deleted outright** - the answer lives in `00-decisions.md`
 and nothing is left behind here to point at it. This is a living, constantly changing document.
 
