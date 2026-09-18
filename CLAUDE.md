@@ -20,7 +20,9 @@ All via the Gradle wrapper (Gradle 8.8, `org.gradle.daemon=false`, `-Xmx3G`):
 
 ### Tests
 
-There is no `src/test` and no JUnit dependency. The test mechanism this project is wired for is **Forge GameTests**:
+`src/test` holds the package structure rules of `docs/04-package-structure.md` and nothing else -
+ArchUnit over the compiled classes, run by `./gradlew build`. JUnit exists for those and is not the
+mechanism for testing behaviour. That is **Forge GameTests**:
 both run configs set `forge.enabledGameTestNamespaces=septemcraft`, so any
 `@GameTestHolder(SeptemCraftMod.MODID)` class is picked up automatically. Run them from inside a
 dev client/server with `/test runall`, or `/test run <namespace>:<name>` for a single test.
@@ -49,6 +51,8 @@ the `data` run config is commented out in `build.gradle`; uncomment it to add da
   silence - if it is not written down, it is not decided."*
 - `docs/legacy/01-open-questions.md` - explicitly undecided questions and open topics.
 - `docs/03-code-principles.md` - the nine rules all code follows. Cite by number in review.
+- `docs/04-package-structure.md` - where code goes: the three package kinds and what each may
+  import. Enforced by `./gradlew build`, not by review.
 
 Load-bearing decisions that constrain implementation work:
 
