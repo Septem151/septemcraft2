@@ -6,7 +6,6 @@ import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaModifier;
 import com.tngtech.archunit.core.domain.JavaPackage;
 import com.tngtech.archunit.core.importer.ImportOption;
-import com.tngtech.archunit.core.importer.Location;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.AbstractClassesTransformer;
@@ -15,199 +14,250 @@ import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.lang.ClassesTransformer;
 import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
-
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.all;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
 /**
  * Checks that every package declares what kind it is, and that no class imports across a boundary
  * its package's kind forbids.
  */
-@AnalyzeClasses(
-		packages = "io.gifsync.septemcraft",
-		importOptions = {ImportOption.DoNotIncludeTests.class, PackageStructureTest.DoNotIncludeGameTests.class})
+@AnalyzeClasses(packages = PackageStructureTest.ROOT, importOptions = {ImportOption.DoNotIncludeTests.class,
+	DoNotIncludeGameTests.class})
 class PackageStructureTest
 {
-	/** The package trees that exist only on a client, and so are absent from a dedicated server. */
-	private static final List<String> CLIENT_ONLY = List.of("net.minecraft.client", "net.minecraftforge.client");
+	/** The package tree these rules apply to. */
+	static final String ROOT = "io.gifsync.septemcraft";
 
-	/** Every package holding at least one class, so that a package is reported once however many it holds. */
-	private static final ClassesTransformer<JavaPackage> PACKAGES =
-			new AbstractClassesTransformer<>("packages")
+	/**
+	 * Every package that holds a class, and every package of the mod above one, so that a package is
+	 * reported once however many classes it holds and one holding only subpackages is reported too.
+	 */
+	private static final ClassesTransformer<JavaPackage> PACKAGES = new AbstractClassesTransformer<>("packages")
+	{
+		@Override
+		public Iterable<JavaPackage> doTransform(JavaClasses classes)
+		{
+			Set<JavaPackage> packages = new LinkedHashSet<>();
+			for (JavaClass item : classes)
 			{
-				@Override
-				public Iterable<JavaPackage> doTransform(JavaClasses classes)
+				packages.add(item.getPackage());
+				for (JavaPackage ancestor : ancestorsOf(item.getPackage()))
 				{
-					Set<JavaPackage> packages = new LinkedHashSet<>();
-					for (JavaClass item : classes)
+					if (isWithinRoot(ancestor))
 					{
-						packages.add(item.getPackage());
+						packages.add(ancestor);
 					}
-
-					return packages;
 				}
-			};
+			}
+
+			return packages;
+		}
+	};
 
 	@ArchTest
 	static final ArchRule every_package_declares_its_kind = all(PACKAGES)
-			.should(new ArchCondition<JavaPackage>("declare a kind")
+		.should(new ArchCondition<JavaPackage>("declare a kind")
+		{
+			@Override
+			public void check(JavaPackage item, ConditionEvents events)
 			{
-				@Override
-				public void check(JavaPackage item, ConditionEvents events)
+				if (kindOf(item).isEmpty())
 				{
-					if (kindOf(item).isEmpty())
-					{
-						events.add(SimpleConditionEvent.violated(item,
-								item.getName() + " has no package-info.java declaring a @PackageKind"));
-					}
+					events.add(SimpleConditionEvent.violated(
+						item, item.getName() + " has no package-info.java declaring a @PackageKind"));
 				}
-			});
+			}
+		});
 
 	@ArchTest
 	static final ArchRule a_feature_depends_on_no_other_feature = classes()
-			.should(new ArchCondition<JavaClass>("depend on no other feature")
+		.should(new ArchCondition<JavaClass>("depend on no other feature")
+		{
+			@Override
+			public void check(JavaClass item, ConditionEvents events)
 			{
-				@Override
-				public void check(JavaClass item, ConditionEvents events)
+				Optional<String> feature = featureOf(item);
+				if (feature.isEmpty())
 				{
-					Optional<String> feature = featureOf(item);
-					if (feature.isEmpty())
-					{
-						return;
-					}
+					return;
+				}
 
-					for (Dependency dependency : item.getDirectDependenciesFromSelf())
+				for (Dependency dependency : item.getDirectDependenciesFromSelf())
+				{
+					Optional<String> target = featureOf(dependency.getTargetClass());
+					if (target.isPresent() && !target.equals(feature))
 					{
-						Optional<String> target = featureOf(dependency.getTargetClass());
-						if (target.isPresent() && !target.get().equals(feature.get()))
-						{
-							events.add(SimpleConditionEvent.violated(item, dependency.getDescription()));
-						}
+						events.add(SimpleConditionEvent.violated(item, dependency.getDescription()));
 					}
 				}
-			});
+			}
+		});
 
 	@ArchTest
 	static final ArchRule a_shared_package_depends_only_on_shared_packages = classes()
-			.should(new ArchCondition<JavaClass>("depend on neither a feature nor a composition root")
+		.should(new ArchCondition<JavaClass>("depend on neither a feature nor a composition root")
+		{
+			@Override
+			public void check(JavaClass item, ConditionEvents events)
 			{
-				@Override
-				public void check(JavaClass item, ConditionEvents events)
+				if (!isKind(item.getPackage(), Kind.SHARED))
 				{
-					if (kindOf(item.getPackage()).orElse(null) != Kind.SHARED)
-					{
-						return;
-					}
+					return;
+				}
 
-					for (Dependency dependency : item.getDirectDependenciesFromSelf())
+				for (Dependency dependency : item.getDirectDependenciesFromSelf())
+				{
+					JavaPackage target = dependency.getTargetClass().getPackage();
+					if (isKind(target, Kind.FEATURE) || isKind(target, Kind.COMPOSITION_ROOT))
 					{
-						Kind target = kindOf(dependency.getTargetClass().getPackage()).orElse(null);
-						if (target == Kind.FEATURE || target == Kind.COMPOSITION_ROOT)
-						{
-							events.add(SimpleConditionEvent.violated(item, dependency.getDescription()));
-						}
+						events.add(SimpleConditionEvent.violated(item, dependency.getDescription()));
 					}
 				}
-			});
+			}
+		});
 
 	@ArchTest
-	static final ArchRule a_composition_root_is_imported_only_by_one_containing_it = classes()
-			.should(new ArchCondition<JavaClass>("depend on no composition root but one enclosing it")
+	static final ArchRule a_feature_or_a_composition_root_is_imported_only_by_its_nearest_root = classes()
+		.should(new ArchCondition<JavaClass>("reach a feature or a composition root only from its nearest root")
+		{
+			@Override
+			public void check(JavaClass item, ConditionEvents events)
 			{
-				@Override
-				public void check(JavaClass item, ConditionEvents events)
-				{
-					for (Dependency dependency : item.getDirectDependenciesFromSelf())
-					{
-						JavaClass target = dependency.getTargetClass();
-						if (kindOf(target.getPackage()).orElse(null) != Kind.COMPOSITION_ROOT)
-						{
-							continue;
-						}
+				Optional<String> from = unitOf(item).map(JavaPackage::getName);
 
-						if (!encloses(item.getPackageName(), target.getPackageName()))
-						{
-							events.add(SimpleConditionEvent.violated(item, dependency.getDescription()));
-						}
+				for (Dependency dependency : item.getDirectDependenciesFromSelf())
+				{
+					Optional<JavaPackage> unit = unitOf(dependency.getTargetClass());
+					if (unit.isEmpty() || from.equals(unit.map(JavaPackage::getName)))
+					{
+						continue;
+					}
+
+					Optional<JavaPackage> root = nearestRootAbove(unit.get());
+					if (root.isEmpty() || !root.get().getName().equals(item.getPackageName()))
+					{
+						events.add(SimpleConditionEvent.violated(item, dependency.getDescription()));
 					}
 				}
-			});
+			}
+		});
 
 	@ArchTest
-	static final ArchRule a_package_in_a_feature_exposes_one_public_type = all(PACKAGES)
-			.should(new ArchCondition<JavaPackage>("expose no more than one public type")
+	static final ArchRule a_feature_exposes_one_public_type = all(PACKAGES)
+		.should(new ArchCondition<JavaPackage>("expose no more than one public type at its root")
+		{
+			@Override
+			public void check(JavaPackage item, ConditionEvents events)
 			{
-				@Override
-				public void check(JavaPackage item, ConditionEvents events)
+				if (!isKind(item, Kind.FEATURE) || enclosingFeature(item).isPresent())
 				{
-					if (kindOf(item).orElse(null) != Kind.FEATURE)
-					{
-						return;
-					}
-
-					List<String> exposed = item.getClasses().stream()
-							.filter(PackageStructureTest::isExposed)
-							.map(JavaClass::getSimpleName)
-							.sorted()
-							.toList();
-
-					if (exposed.size() > 1)
-					{
-						events.add(SimpleConditionEvent.violated(item, item.getName()
-								+ " exposes " + exposed.size() + " public types: " + String.join(", ", exposed)));
-					}
+					return;
 				}
-			});
+
+				List<String> exposed = item.getClasses().stream()
+					.filter(PackageStructureTest::isExposed)
+					.map(JavaClass::getSimpleName)
+					.sorted()
+					.toList();
+
+				if (exposed.size() > 1)
+				{
+					events.add(SimpleConditionEvent.violated(
+						item,
+						item.getName() + " exposes " + exposed.size() + " public types: "
+							+ String.join(", ", exposed)));
+				}
+			}
+		});
 
 	@ArchTest
 	static final ArchRule a_package_inside_a_feature_is_part_of_it = all(PACKAGES)
-			.should(new ArchCondition<JavaPackage>("declare itself a feature when a feature encloses it")
+		.should(new ArchCondition<JavaPackage>("declare itself a feature when a feature encloses it")
+		{
+			@Override
+			public void check(JavaPackage item, ConditionEvents events)
 			{
-				@Override
-				public void check(JavaPackage item, ConditionEvents events)
+				if (isKind(item, Kind.FEATURE))
 				{
-					if (kindOf(item).orElse(null) == Kind.FEATURE)
-					{
-						return;
-					}
-
-					enclosingFeature(item).ifPresent(feature -> events.add(SimpleConditionEvent.violated(item,
-							item.getName() + " lies inside feature " + feature + " without declaring itself one")));
+					return;
 				}
-			});
+
+				enclosingFeature(item)
+					.ifPresent(feature -> events.add(SimpleConditionEvent.violated(
+						item,
+						item.getName() + " lies inside feature " + feature.getName()
+							+ " without declaring itself one")));
+			}
+		});
 
 	@ArchTest
-	static final ArchRule client_only_code_lives_in_a_client_package = classes()
-			.should(new ArchCondition<JavaClass>("touch client-only types only inside a client package")
+	static final ArchRule a_feature_is_reached_only_through_its_one_type = classes()
+		.should(new ArchCondition<JavaClass>("reach a feature only through its one public type")
+		{
+			@Override
+			public void check(JavaClass item, ConditionEvents events)
 			{
-				@Override
-				public void check(JavaClass item, ConditionEvents events)
+				Optional<String> feature = featureOf(item);
+
+				for (Dependency dependency : item.getDirectDependenciesFromSelf())
 				{
-					if (isClientPackage(item.getPackageName()))
+					JavaClass target = dependency.getTargetClass();
+					Optional<String> reached = featureOf(target);
+					if (reached.isEmpty() || reached.equals(feature) || isDoorOf(target, reached.get()))
 					{
-						return;
+						continue;
 					}
 
-					for (Dependency dependency : item.getDirectDependenciesFromSelf())
-					{
-						if (isClientOnly(dependency.getTargetClass()))
-						{
-							events.add(SimpleConditionEvent.violated(item, dependency.getDescription()));
-						}
-					}
+					events.add(SimpleConditionEvent.violated(item, dependency.getDescription()));
 				}
-			});
+			}
+		});
+
+	@ArchTest
+	static final ArchRule no_package_holds_a_cycle_with_another = slices().matching(ROOT + ".(**)").should()
+		.beFreeOfCycles();
+
+	@ArchTest
+	static final ArchRule no_type_is_declared_inside_another = classes()
+		.should(new ArchCondition<JavaClass>("be declared in a file of their own")
+		{
+			@Override
+			public void check(JavaClass item, ConditionEvents events)
+			{
+				if (!item.isNestedClass() || item.isAnonymousClass())
+				{
+					return;
+				}
+
+				item.getEnclosingClass()
+					.ifPresent(outer -> events.add(SimpleConditionEvent.violated(
+						item, item.getSimpleName() + " is declared inside " + outer.getName())));
+			}
+		});
 
 	/** The kind a package declares, if it declares one. */
 	private static Optional<Kind> kindOf(JavaPackage javaPackage)
 	{
 		return javaPackage.tryGetAnnotationOfType(PackageKind.class).map(PackageKind::value);
+	}
+
+	/** Whether a package declares the given kind. */
+	private static boolean isKind(JavaPackage javaPackage, Kind kind)
+	{
+		return kindOf(javaPackage).filter(kind::equals).isPresent();
+	}
+
+	/** Whether a package is the root these rules apply to, or lies inside it. */
+	private static boolean isWithinRoot(JavaPackage javaPackage)
+	{
+		return javaPackage.getName().equals(ROOT) || javaPackage.getName().startsWith(ROOT + ".");
 	}
 
 	/**
@@ -216,69 +266,66 @@ class PackageStructureTest
 	 */
 	private static Optional<String> featureOf(JavaClass item)
 	{
+		return unitOf(item)
+			.filter(javaPackage -> isKind(javaPackage, Kind.FEATURE))
+			.map(JavaPackage::getName);
+	}
+
+	/**
+	 * Names the package a class is reached through - the root of the feature it belongs to, or its
+	 * own package when that package is a composition root. A shared package is reached through
+	 * nothing.
+	 */
+	private static Optional<JavaPackage> unitOf(JavaClass item)
+	{
 		JavaPackage javaPackage = item.getPackage();
-		if (kindOf(javaPackage).orElse(null) != Kind.FEATURE)
+		if (isKind(javaPackage, Kind.FEATURE))
 		{
-			return Optional.empty();
+			return Optional.of(enclosingFeature(javaPackage).orElse(javaPackage));
 		}
 
-		return Optional.of(enclosingFeature(javaPackage).orElseGet(javaPackage::getName));
+		return isKind(javaPackage, Kind.COMPOSITION_ROOT) ? Optional.of(javaPackage) : Optional.empty();
 	}
 
 	/** Names the outermost feature enclosing a package, if any feature encloses it. */
-	private static Optional<String> enclosingFeature(JavaPackage javaPackage)
+	private static Optional<JavaPackage> enclosingFeature(JavaPackage javaPackage)
 	{
-		Optional<String> feature = Optional.empty();
-		for (Optional<JavaPackage> ancestor = javaPackage.getParent();
-			 ancestor.isPresent();
-			 ancestor = ancestor.get().getParent())
+		return ancestorsOf(javaPackage).stream()
+			.filter(ancestor -> isKind(ancestor, Kind.FEATURE))
+			.reduce((nearer, further) -> further);
+	}
+
+	/** Names the composition root nearest above a package, if one encloses it at any depth. */
+	private static Optional<JavaPackage> nearestRootAbove(JavaPackage javaPackage)
+	{
+		return ancestorsOf(javaPackage).stream()
+			.filter(ancestor -> isKind(ancestor, Kind.COMPOSITION_ROOT))
+			.findFirst();
+	}
+
+	/** The packages above one, nearest first. */
+	private static List<JavaPackage> ancestorsOf(JavaPackage javaPackage)
+	{
+		List<JavaPackage> ancestors = new ArrayList<>();
+		for (Optional<JavaPackage> ancestor = javaPackage.getParent(); ancestor
+			.isPresent(); ancestor = ancestor.get().getParent())
 		{
-			if (kindOf(ancestor.get()).orElse(null) == Kind.FEATURE)
-			{
-				feature = Optional.of(ancestor.get().getName());
-			}
+			ancestors.add(ancestor.get());
 		}
 
-		return feature;
+		return ancestors;
 	}
 
-	/** Whether one package is the other, or holds it at any depth. */
-	private static boolean encloses(String outer, String inner)
+	/** Whether a class is the one public type a feature exposes. */
+	private static boolean isDoorOf(JavaClass item, String feature)
 	{
-		return outer.equals(inner) || inner.startsWith(outer + ".");
+		return item.getPackageName().equals(feature) && isExposed(item);
 	}
 
-	/** Whether a class is a public type of its package, rather than a nested or package-private one. */
+	/** Whether a class is a public type of its package, rather than a package-private one. */
 	private static boolean isExposed(JavaClass item)
 	{
 		return item.getModifiers().contains(JavaModifier.PUBLIC)
-				&& !item.getName().contains("$")
-				&& !item.getSimpleName().equals("package-info");
-	}
-
-	/** Whether a package is a {@code client} package, or lies inside one. */
-	private static boolean isClientPackage(String name)
-	{
-		return name.endsWith(".client") || name.contains(".client.");
-	}
-
-	/** Whether a class is one that exists only on a client. */
-	private static boolean isClientOnly(JavaClass item)
-	{
-		String name = item.getPackageName();
-		return CLIENT_ONLY.stream().anyMatch(each -> encloses(each, name));
-	}
-
-	/** Keeps the gametest source set out of the analysis, the way ArchUnit keeps {@code src/test} out. */
-	public static final class DoNotIncludeGameTests implements ImportOption
-	{
-		private static final Pattern GAMETEST_OUTPUT = Pattern.compile(".*/build/classes/([^/]+/)?gametest/.*");
-
-		/** Whether a location holds classes the rules apply to. */
-		@Override
-		public boolean includes(Location location)
-		{
-			return !location.matches(GAMETEST_OUTPUT);
-		}
+			&& !item.getSimpleName().equals("package-info");
 	}
 }

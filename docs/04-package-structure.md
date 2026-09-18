@@ -18,11 +18,11 @@ module root assembles its features.
 
 Every package declares its kind, and the kind is what says where it may import from.
 
-| Kind                 | Imports                                      | Imported by              |
-|----------------------|----------------------------------------------|--------------------------|
-| **Shared**           | shared packages only                         | anything                 |
-| **Feature**          | shared packages; never a feature, either way | a composition root only  |
-| **Composition root** | its features and shared packages             | a root containing it     |
+| Kind                 | Imports                                               | Imported by      |
+|----------------------|-------------------------------------------------------|------------------|
+| **Shared**           | never a feature or a composition root                 | anything         |
+| **Feature**          | shared packages; never a feature, either way          | the nearest root |
+| **Composition root** | its features, a root it contains, and shared packages | the nearest root |
 
 Shared is the model; a feature is the machine.
 
@@ -38,11 +38,13 @@ package io.gifsync.septemcraft.electrification.transformer;
 - **A feature is a vertical slice** - its blocks, behaviour and rendering together.
 - **Two features never meet.** What passes between them is promoted to a shared package, and
   neither learns the other exists.
-- **A package inside a feature exposes one public type**, holding that package's registry objects.
-  Everything else is package-private.
-- **Client-only code is a `client` subpackage** of the feature it draws.
+- **A composition root reaches only its own features** - it may depend only on a feature whose
+  nearest enclosing composition root is itself. The mod root reaches a module's features through
+  the module root, never directly.
+- **A feature exposes one public type**, holding its registry objects. Nothing outside the feature
+  names anything else in it.
 - **A package inside a feature is part of that feature.** A feature may hold subpackages; they
-  are the feature, and nothing outside it reaches into them.
+  are the feature, and nothing outside it reaches into them, so what they expose is unconstrained.
 - **Whatever enumerates features is a composition root** - registration, Ponder, client setup,
   datagen.
 - **GameTests never ship in the jar.** They live in `src/gametest/java`, mirroring the package
@@ -54,12 +56,13 @@ package io.gifsync.septemcraft.electrification.transformer;
 
 1. Every package declares its kind.
 2. A feature depends on no other feature.
-3. A shared package depends only on shared packages.
-4. A composition root is imported only by a composition root containing it.
-5. A package in a feature exposes one public type.
+3. A shared package depends on neither a feature nor a composition root.
+4. A feature or a composition root is imported only by the composition root nearest enclosing it.
+5. A feature root exposes one public type.
 6. A package inside a feature declares itself part of that feature.
-7. Client-only code lives in a `client` package - `net.minecraft.client` and
-   `net.minecraftforge.client` are reachable from nowhere else.
+7. No package holds a cycle with another.
+8. A feature is reached only through its one public type.
+9. No type is declared inside another.
 
 `src/gametest/java` is its own source set, compiled by `./gradlew build` and excluded from these
 rules.

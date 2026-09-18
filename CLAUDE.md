@@ -4,30 +4,76 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-SeptemCraft is a Minecraft **Forge 1.20.1** mod (Java 17), currently a Forge MDK
-skeleton - `SeptemCraftMod` (the `@Mod` entrypoint) and an empty `SeptemCraftConfig` - plus a
-design record in `docs/`. Essentially all substantive information about the project lives in
-`docs/`, not in code at this point in time.
+SeptemCraft is a Minecraft **Forge 1.20.1** mod (Java 17), currently a Forge MDK skeleton plus the
+package-structure machinery that governs everything added to it, plus a design record in `docs/`.
+Essentially all substantive information about the project lives in `docs/`, not in code at this
+point in time.
+
+```
+src/main/java/io/gifsync/septemcraft
+├── SeptemCraftMod            the @Mod entrypoint; holds MODID
+├── SeptemCraftConfig         an empty @Mod.EventBusSubscriber placeholder
+└── structure                 Kind and @PackageKind - what a package is
+src/test/java                 ArchUnit over the structure, and JUnit over the model
+src/gametest/java             Forge GameTests; not yet created
+```
+
+**Every package carries a `package-info.java` annotated `@PackageKind(Kind.…)`.** A new package
+without one fails `./gradlew build` - the kind is what decides where that package may import from.
+
+Nothing outside `io.gifsync.septemcraft` may name a class in it, `SeptemCraftMod.MODID` included:
+the mod root is a composition root with no root above it, so the structure rules forbid reaching
+into it. A feature needing the mod id needs it promoted to a shared package first.
 
 ## Commands
 
-All via the Gradle wrapper (Gradle 8.8, `org.gradle.daemon=false`, `-Xmx3G`):
+All via the Gradle wrapper (Gradle 8.8, `org.gradle.daemon=false`, `-Xmx3G`). Gradle 8.8 does not
+run on this machine's default JDK, so **every command needs
+`JAVA_HOME=/usr/lib/jvm/java-17-openjdk`** - without it the wrapper fails before reading the build:
 
 ```bash
-./gradlew build            # compile + jar (jar is finalizedBy reobfJar)
+./gradlew test             # compile checks + ArchUnit + JUnit - the fast loop, seconds
+./gradlew spotlessApply    # rewrite every source set in the one format
+./gradlew build            # the above, plus compile + jar (jar is finalizedBy reobfJar)
 ./gradlew runClient        # launch dev client (working dir: ./run, gitignored)
 ```
 
+Reach for `./gradlew test` while iterating: it carries Error Prone, NullAway, ArchUnit and JUnit
+with no `reobfJar` behind it. `build` adds the format check and the jar.
+
 ### Tests
 
-`src/test` holds the package structure rules of `docs/04-package-structure.md` and nothing else -
-ArchUnit over the compiled classes, run by `./gradlew build`. JUnit exists for those and is not the
-mechanism for testing behaviour. That is **Forge GameTests**:
-both run configs set `forge.enabledGameTestNamespaces=septemcraft`, so any
-`@GameTestHolder(SeptemCraftMod.MODID)` class is picked up automatically. Run them from inside a
-dev client/server with `/test runall`, or `/test run <namespace>:<name>` for a single test.
-For a headless run-all-then-exit, uncomment the `gameTestServer` run config in `build.gradle`
-(then `./gradlew runGameTestServer`).
+Three mechanisms, and they do not overlap:
+
+- **JUnit** (`src/test/java`) tests the model - values and the arithmetic over them, everything that
+  needs no world. Tests mirror the package names, so they reach package-private types and nothing is
+  made public in order to be tested.
+- **ArchUnit** (`src/test/java`) enforces the package structure. Its `DoNotIncludeTests` option keeps
+  the model tests out of the structural analysis, so both live in that source set without conflict.
+- **Forge GameTests** (`src/gametest/java`) answer what only a world can - placement, adjacency,
+  wiring, redstone, failure. A "unit test" that needs a `Level` is a GameTest that has not admitted
+  it yet, and nothing structural will stop you writing one.
+
+`./gradlew build` runs the first two and compiles the third. Both run configs set
+`forge.enabledGameTestNamespaces=septemcraft`, so any `@GameTestHolder(SeptemCraftMod.MODID)` class
+is picked up automatically. Run them from inside a dev client/server with `/test runall`, or
+`/test run <namespace>:<name>` for a single test. For a headless run-all-then-exit, uncomment the
+`gameTestServer` run config in `build.gradle` (then `./gradlew runGameTestServer`).
+
+### Enforcement
+
+Nothing here warns - each of these fails the build.
+
+- **Spotless** holds every source set to `config/eclipse-format.properties` - the RuneLite
+  IntelliJ scheme translated for the Eclipse engine, so the build agrees with the IDE.
+  `./gradlew spotlessApply` is the fix.
+- **Error Prone** runs as a compiler plugin over every source set, under `-Xlint:all -Werror`.
+  `-Xlint` is not optional: javac reports a deprecated call or an unchecked cast as a note that
+  `-Werror` cannot see until a lint category asks for it.
+- **NullAway** treats `io.gifsync.septemcraft` as non-null by default. Minecraft and Forge are
+  unannotated, so a value they hand back is converted where it arrives rather than assumed.
+- **ArchUnit** enforces the package structure.
+- **CI** runs `./gradlew build` on push and pull request (`.github/workflows/build.yml`).
 
 ## Build configuration
 
@@ -50,7 +96,7 @@ the `data` run config is commented out in `build.gradle`; uncomment it to add da
 - `docs/00-decisions.md` - **settled** decisions only. Its own rule: *"Do not infer a decision from
   silence - if it is not written down, it is not decided."*
 - `docs/legacy/01-open-questions.md` - explicitly undecided questions and open topics.
-- `docs/03-code-principles.md` - the nine rules all code follows. Cite by number in review.
+- `docs/03-code-principles.md` - the rules all code follows.
 - `docs/04-package-structure.md` - where code goes: the three package kinds and what each may
   import. Enforced by `./gradlew build`, not by review.
 

@@ -4,6 +4,8 @@ plugins {
     id 'maven-publish'
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
     id 'org.parchmentmc.librarian.forgegradle' version '1.+'
+    id 'com.diffplug.spotless' version '6.25.0'
+    id 'net.ltgt.errorprone' version '4.0.1'
 }
 
 version = mod_version
@@ -27,6 +29,32 @@ sourceSets {
 configurations {
     gametestImplementation.extendsFrom implementation
     gametestRuntimeOnly.extendsFrom runtimeOnly
+}
+
+// Formatting. There is one format - `config/eclipse-format.properties` - and the build holds every
+// source set to it: `spotlessCheck` runs as part of `build`, and `spotlessApply` rewrites the
+// sources.
+spotless {
+    java {
+        eclipse(eclipse_jdt_version).configFile 'config/eclipse-format.properties'
+        importOrder '', '\\#'
+        removeUnusedImports()
+    }
+}
+
+// Error Prone over every source set, with NullAway over the mod's own packages. A finding is an
+// error, never a warning, so nothing accumulates unattended. `-Xlint` is what turns javac's own
+// findings - a deprecated call, an unchecked cast, a raw type - into warnings at all; without it
+// javac reports them as notes that `-Werror` cannot see. `processing` is off because Error Prone
+// sits on the processor path without claiming an annotation.
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.errorprone {
+        disableWarningsInGeneratedCode = true
+        error 'NullAway'
+        option 'NullAway:AnnotatedPackages', mod_group_id
+    }
+    options.compilerArgs << '-Xlint:all,-processing' << '-Werror'
 }
 
 println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
@@ -129,9 +157,9 @@ dependencies {
     // then special handling is done to allow a setup of a vanilla dependency without the use of an external repository.
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
 
-    // Lombok. Compile-time only; see docs/03-code-principles.md rule 5.
-    compileOnly "org.projectlombok:lombok:${lombok_version}"
-    annotationProcessor "org.projectlombok:lombok:${lombok_version}"
+    // Error Prone and NullAway. Compile-time only; they run as compiler plugins.
+    errorprone "com.google.errorprone:error_prone_core:${errorprone_version}"
+    errorprone "com.uber.nullaway:nullaway:${nullaway_version}"
 
     testImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junit_version}"
@@ -207,10 +235,6 @@ publishing {
             url "file://${project.projectDir}/mcmodsrepo"
         }
     }
-}
-
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
 }
 
 tasks.named('test', Test).configure {
