@@ -42,13 +42,48 @@ Yield sits behind it. Interior wiring is the domestic layer and wants to be buil
 without a dedicated industry, so how much latex a flower gives decides whether the jacket
 costs a flowerbed or a field.
 
-## Q13. Whether weather can strike the grid
+## Q13. What lightning does to an unprotected line
 
-*Blocking: what surge arresters are for, and how many a line needs.*
+*Blocking: how exposed an outdoor line is, and how many arresters it wants.*
 
-*Failure model* settles surge arresters as the protection against an over-voltage too
-fast for a breaker, but nothing in the mod currently produces one. A thunderstorm striking
-a catenary span is the obvious source, and the real reason arresters exist at all. Whether
-the grid is exposed to weather - and if so, whether a strike is drawn to tall poles, what
-it does to an unprotected line, and whether arresters are consumable enough to make
-storms a maintenance loop - is open.
+*Protection* settles that lightning strikes the grid and destroys an arrester where one is
+present. What a strike does where none is present is open, as is whether strikes are drawn
+to tall poles - which would make catenary height a liability and give arrester placement a
+geometry. Whether spent arresters turn storms into a maintenance loop sits behind both.
+
+## Q14. Where oil comes from
+
+*Blocking: transformers, and so every stepped circuit.*
+
+*Materials* settles oil as the transformer coolant and *Transformers* settles what its
+absence costs. Its chain is open: Create has no oil, so oil needs a source the way rubber
+got dandelions. Yield decides whether filling a transformer is a one-off or an upkeep.
+
+Water stands in for oil until the chain is decided.
+
+## Q15. One protective relay or two
+
+*Blocking: the relay block.*
+
+*Protection* settles an over-current relay and an over-voltage relay as separate items. A
+protective relay is a threshold comparator, so what it watches could be a setting on one
+block rather than two devices. Whether the pair collapses is open.
+
+## Q16. How a DC circuit is measured
+
+*Blocking: instrumentation and protection on the DC domain.*
+
+*Devices* settles the instrument transformer as the measurement primitive, and
+*Transformers* settles that it is AC-only. Per *Current types* the DC domain is battery
+internals, control circuits and instrumentation, and per *Arcs* a shorted battery explodes,
+so DC is not a place to go unmeasured. Whether DC gets its own tap, or instruments read a
+DC circuit by contact because low voltage makes that safe, is open.
+
+## Q17. What a breaker is made of
+
+*Blocking: the breaker multiblock.*
+
+*Protection* settles the breaker as a multiblock that interrupts on command. Its parts are
+open. Contacts carry current and so want an ampacity and a thermal state per *Failure
+model*; whether rating follows part count, as it does for generators and transformers, is
+open with them.

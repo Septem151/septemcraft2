@@ -158,8 +158,13 @@ where people walk past it. See *Shock* for what a bare conductor costs to touch,
 
 **Composed of working parts - no formation step.** There is no "build the
 pattern and hit it with a hammer" moment and no controller-plus-structure-check.
-A transformer is a core, plus coils, plus whatever else, each a real block doing a
-real job, working because the parts are adjacent and correctly wired.
+A machine is an arrangement of real blocks each doing a real job, working because the
+parts are adjacent and correctly wired.
+
+**Parts are blocks; consumables and fittings are contents.** A block that needs filling
+is filled by interacting with it, not by placing something next to it. Coils and oil go
+*into* a transformer winding rather than beside it, and what a block holds is part of
+what it is - a winding with six coils is a different device from the same block with two.
 
 ## 10. Materials
 
@@ -186,6 +191,9 @@ real job, working because the parts are adjacent and correctly wired.
   is vulcanized into sheet, which wraps wire for interior runs. The jacket is touch
   protection per *Shock*; it has no bearing on the voltage a conductor can carry.
 
+- **Coolant: oil.** Oil fills transformer windings and carries heat out of them per
+  *Transformers*. Where oil comes from is open.
+
 **Design emphasis:** *energy production requires resource gathering.* Generators
 are built from copper windings and magnets, and the cost of building them is a central
 part of the experience - not an afterthought to a balance number.
@@ -200,7 +208,45 @@ chunk in between to tick. No cross-dimension power.
 **Distance causes loss, and loss depends on current** - a consequence of the
 quantity mapping. Stepping up the voltage is therefore how a long haul is run.
 
-## 12. Devices
+## 12. Transformers
+
+**Coils are turns, and a winding is a block filled with coils.** A transformer's ratio is
+the turn counts of its windings against each other, so the ratio is set by how many coils
+are stuffed into each one. Re-rating a transformer means re-winding it. The resulting
+ratio is readable in the Engineer's Goggles overlay.
+
+Three arrangements, separated by how many windings they carry and how the line meets them:
+
+| | Windings | The line | Produces |
+|---|---|---|---|
+| **Power transformer** | two | terminates into the primary | power, at a new voltage |
+| **Voltage transformer** | two | continues past; a branch taps it | a proportional voltage - a reading |
+| **Current transformer** | one | passes through the core | a proportional current - a reading |
+
+**Power transformers and voltage transformers are multiblocks of at least 2x1**, because
+two windings need two blocks. Size above that minimum is what a bigger transformer is.
+
+**A current transformer is a single block: a loop the conductor passes through.** It has
+one winding because the conductor threading it is already the primary, a single turn. Its
+ratio is therefore its coil count against that one turn. The line is not broken, not
+diverted, and loses nothing.
+
+```
+     power transformer                  current transformer
+     line terminates                    line threads the core
+
+  ═══╗                                        ┌──────┐
+     ╠══[ core ]══╗                   ════════╪══════╪════════▶
+  ═══╝            ║                           └──┬───┘
+                  ╚═══▶                          ▼
+```
+
+**Oil is cooling.** Windings are filled with oil as well as coils, and the oil carries
+heat out of the core. A transformer run without it heats under load per *Failure model*.
+
+**Instrument transformers are AC-only**, as every transformer is per *Current types*.
+
+## 13. Devices
 
 In scope:
 
@@ -213,17 +259,33 @@ In scope:
 
 Out of scope: heating and electro-processing devices.
 
-## 13. Control
+**Instruments read a tap, they do not touch the line.** The instrument transformers of
+*Transformers* are the measurement primitive: one tap on a conductor, read over control
+wiring at low voltage by anything that wants the number. A relay, a meter, a gauge and a
+redstone converter on the same tap all see the same reading, and the tap is placed once.
+
+```
+  ═══════[CT]═══════════
+           |
+           |--> [protective relay] --trip--> [breaker]
+           |--> [ammeter]
+           '--> [redstone converter]
+```
+
+This keeps instrumentation off bare conductors, which per *Shock* is where it wants to be.
+How a DC circuit is measured is open, instrument transformers being AC-only.
+
+## 14. Control
 
 **Two bridged layers.**
 
-- A native **control circuit** layer (switches, relays, contactors) at low voltage,
+- A native **control circuit** layer (switches, contactors, timers) at low voltage,
   commanding the **power circuit** - real switchgear behavior, where a breaker is
   something the control circuit can trip.
 - **Redstone converters** in both directions, so redstone can read and drive the
   control layer and vice versa.
 
-## 14. Failure model
+## 15. Failure model
 
 **Nothing fails because of power.** Damage is always caused by current or by voltage,
 and those two fail in different shapes.
@@ -231,7 +293,7 @@ and those two fail in different shapes.
 | Cause       | Physically        | Shape of failure                          | Protection                        |
 |-------------|-------------------|-------------------------------------------|-----------------------------------|
 | **Current** | heat              | cumulative, builds and drains             | breakers, sized in amps           |
-| **Voltage** | dielectric stress | faster the further over, never cumulative | arresters, and relays on breakers |
+| **Voltage** | dielectric stress | faster the further over, never cumulative | arresters, and breakers  |
 | **Power**   | the work budget   | no damage - the network stalls            | generation capacity               |
 
 Current damage is earned slowly and can be caught while it is happening. Voltage damage
@@ -317,26 +379,51 @@ stored energy has somewhere to go. Violence scales with what was feeding the fau
 
 ### Protection
 
-**Circuit breakers are multiblocks built to open a circuit.** Per *Multiblocks* they are
-composed of working parts with no formation step, and per *Control* a breaker is something
-the control circuit can trip. What decides when it trips is the sensing driving it, and
-there is one for each cause:
+Three devices, each covering something the others cannot.
 
-- **Over-current.** The breaker opens before heat reaches the limit, so a fault stops at
-  the trip state instead of reaching burnout. Sized in amps.
-- **Over-voltage.** A relay watching line voltage trips the breaker. This catches the
-  modest over-voltage that takes a moment to break down - a generator geared too fast, or
-  a circuit run into the wrong class. It cannot catch a gross one, which arcs before
-  anything mechanical can move.
+**A fuse is the floor.** One block, in line with the conductor it protects. It senses and
+interrupts in the same body, needs no configuration and nothing bolted to it, and is
+destroyed when it operates. Sized in amps. A fuse is the first protection a circuit gets
+and the only one that works with no control circuit anywhere.
 
-**Surge arresters** stand in front of what a breaker cannot reach. An arrester clamps:
-above its rating it conducts the excess to ground at the speed of the fault instead of
-waiting for a mechanism, which is exactly why it protects where opening a circuit cannot.
-It pays by absorbing that energy itself, and a large enough surge destroys it - which is
-the point. An arrester is cheap and a transformer is not, and a spent one is visible on
-the pole that took the hit.
+**A breaker opens on command and senses nothing.** It is a multiblock that interrupts a
+circuit and does nothing else - per *Multiblocks* composed of working parts with no
+formation step, and per *Control* something the control circuit can trip. It is resettable
+where a fuse is consumed, and what commands it is open: a protective relay, a switch, a
+redstone converter, an interlock.
 
-## 15. Shock
+**Protective relays are what watch the line.** A protective relay is a measuring device
+that reads a tap per *Devices*, compares against a threshold, and issues a trip. It is
+distinct from the contactors and switches of *Control*, which carry no measurement. There
+is one relay for each damage cause:
+
+- **Over-current relay.** Trips before heat reaches the limit, so a fault stops at the
+  trip state instead of reaching burnout. Sized in amps, read from a current transformer.
+- **Over-voltage relay.** Trips on line voltage above the circuit's class, read from a
+  voltage transformer.
+
+**Surge arresters clamp instead of switching.** Above its rating an arrester conducts the
+excess to ground at the speed of the fault, holding voltage downstream below the withstand
+level. It pays by absorbing that energy itself, and a large enough surge destroys it. An
+arrester is cheap and a transformer is not, and a spent one is visible on the pole that
+took the hit.
+
+**Over-voltage splits by whether something is still pushing.**
+
+| | Example | Cleared by |
+|---|---|---|
+| **Transient** | a lightning strike | the arrester alone - the surge passes, and nothing needs to open |
+| **Sustained** | a generator geared into the wrong class | the arrester holding the line down while a relay trips the breaker |
+
+A breaker is mechanical and takes a moment to open, which a gross over-voltage does not
+give it; an arrester alone against a sustained fault keeps dying into a circuit that is
+still live. Together they clear it with nothing expensive lost.
+
+**Lightning strikes the grid.** A strike lands on an arrester where one is present and
+destroys it. What a strike does to an unprotected line, and whether strikes are drawn to
+tall poles, is open.
+
+## 16. Shock
 
 **A bare energized conductor is dangerous to touch.** That hazard is the whole reason
 insulation exists in this mod; per *Failure model* a jacket has nothing to do with voltage
@@ -350,7 +437,7 @@ deliberately rather than a corridor walked down.
 As with arcs, severity follows the circuit - what a contact costs scales with what is
 behind it.
 
-## 16. Create integration surface
+## 17. Create integration surface
 
 In scope:
 
@@ -363,7 +450,7 @@ In scope:
 Out of scope: **trains** - no electrified rail, pantographs, overhead line, or
 battery locomotives.
 
-## 17. First vertical slice - generators
+## 18. First vertical slice - generators
 
 **Generators**, built as an **axial stack of alternator segments on a Create shaft**.
 
