@@ -102,6 +102,14 @@ minecraft {
             // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
             property 'forge.logging.console.level', 'debug'
 
+            // Mixin refmap remapping. A dependency mod ships its refmap in SRG names, and this dev
+            // runtime runs on the mapped ones, so without this Mixin looks for `m_135870_` on a class
+            // that calls it `bootStrap` and the injection fails outright. AE2 needs it; Create does
+            // not, because ForgeGradle rewrites the refmap of a jar it deobfuscates and AE2's is not
+            // in a form it rewrites.
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+
             mods {
                 "${mod_id}" {
                     source sourceSets.main
@@ -120,20 +128,19 @@ minecraft {
             args '--nogui'
         }
 
+        // Data generation. Writes every generated resource into `src/generated/resources`, which is a
+        // resource source dir of the main source set, so what it writes is what ships.
+        data {
+            workingDirectory project.file('run-data')
+            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
+        }
+
         /**
          // This run config launches GameTestServer and runs all registered gametests, then exits.
          // By default, the server will crash when no gametests are provided.
          // The gametest system is also enabled by default for other run configs under the /test command.
          gameTestServer {
          property 'forge.enabledGameTestNamespaces', mod_id
-         }
-
-         data {
-         // example of overriding the workingDirectory set in configureEach above
-         workingDirectory project.file('run-data')
-
-         // Specify the modid for data generation, where to output the resulting resource, and where to look for existing resources.
-         args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
          }
          **/
     }
@@ -144,6 +151,25 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
     mavenCentral()
+
+    // Create, and the Ponder and Flywheel it bundles.
+    maven {
+        name = 'Create'
+        url = 'https://maven.createmod.net'
+    }
+
+    // Applied Energistics 2.
+    maven {
+        name = 'Modmaven'
+        url = 'https://modmaven.dev'
+    }
+
+    // GuideME, which AE2 requires at runtime and publishes nowhere else.
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content { includeGroup 'maven.modrinth' }
+    }
     // If you have mod jar dependencies in ./libs, you can declare them as a repository like so.
     // See https://docs.gradle.org/current/userguide/declaring_repositories.html#sub:flat_dir_resolver
     // flatDir {
@@ -160,6 +186,13 @@ dependencies {
     // Error Prone and NullAway. Compile-time only; they run as compiler plugins.
     errorprone "com.google.errorprone:error_prone_core:${errorprone_version}"
     errorprone "com.uber.nullaway:nullaway:${nullaway_version}"
+
+    // Create and AE2. Hard dependencies per docs/00-decisions.md - there is no standalone mode, so
+    // neither is optional and neither is branched around. Create's `all` artifact carries the Ponder,
+    // Flywheel and Registrate it needs as nested jars, so its own dependencies never need naming here.
+    implementation fg.deobf("com.simibubi.create:create-1.20.1:${create_version}:all")
+    implementation fg.deobf("appeng:appliedenergistics2-forge:${ae2_version}")
+    runtimeOnly fg.deobf("maven.modrinth:guideme:${guideme_version}")
 
     testImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junit_version}"
@@ -186,12 +219,16 @@ dependencies {
 // When "copyIdeResources" is enabled, this will also run before the game launches in IDE environments.
 // See https://docs.gradle.org/current/dsl/org.gradle.language.jvm.tasks.ProcessResources.html
 tasks.named('processResources', ProcessResources).configure {
+    // Data generation's own bookkeeping, which belongs beside the generated files and not in the jar.
+    exclude '.cache'
+
     var replaceProperties = [
             minecraft_version   : minecraft_version, minecraft_version_range: minecraft_version_range,
             forge_version       : forge_version, forge_version_range: forge_version_range,
             loader_version_range: loader_version_range,
             mod_id              : mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
             mod_authors         : mod_authors, mod_description: mod_description,
+            create_version_range: create_version_range, ae2_version_range: ae2_version_range,
     ]
     inputs.properties replaceProperties
 

@@ -20,4 +20,8 @@ build
 # other
 eclipse
 run
+run-data
 logs
+
+# data generation bookkeeping - it carries a timestamp and regenerates itself
+src/generated/resources/.cache
