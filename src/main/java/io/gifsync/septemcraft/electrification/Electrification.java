@@ -1,7 +1,7 @@
 package io.gifsync.septemcraft.electrification;
 
 import io.gifsync.septemcraft.electrification.material.Materials;
-import io.gifsync.septemcraft.processing.ProcessingRecipe;
+import io.gifsync.septemcraft.processing.CreateRecipe;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.tags.TagKey;
@@ -46,8 +46,8 @@ public final class Electrification
 		materials.models(provider);
 	}
 
-	/** Every processing recipe the module adds. */
-	public List<ProcessingRecipe> recipes()
+	/** Every recipe the module adds. */
+	public List<CreateRecipe> recipes()
 	{
 		return materials.recipes();
 	}

@@ -1,7 +1,7 @@
 package io.gifsync.septemcraft;
 
 import io.gifsync.septemcraft.electrification.Electrification;
-import io.gifsync.septemcraft.processing.ProcessingRecipe;
+import io.gifsync.septemcraft.processing.CreateRecipe;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -10,8 +10,8 @@ import net.minecraft.data.DataProvider;
 import net.minecraft.data.PackOutput;
 
 /**
- * Every recipe the mod adds. All of them are Create processing recipes, which are machine recipes
- * rather than anything a player crafts, so none of them carries an advancement.
+ * Every recipe the mod adds. All of them are Create machine recipes rather than anything a player
+ * crafts, so none of them carries an advancement.
  */
 final class SeptemCraftRecipeProvider implements DataProvider
 {
@@ -28,7 +28,7 @@ final class SeptemCraftRecipeProvider implements DataProvider
 	public CompletableFuture<?> run(CachedOutput output)
 	{
 		List<CompletableFuture<?>> written = new ArrayList<>();
-		for (ProcessingRecipe recipe : electrification.recipes())
+		for (CreateRecipe recipe : electrification.recipes())
 		{
 			written.add(DataProvider.saveStable(output, recipe.toJson(), path.json(recipe.id())));
 		}
@@ -39,6 +39,6 @@ final class SeptemCraftRecipeProvider implements DataProvider
 	@Override
 	public String getName()
 	{
-		return "Processing recipes";
+		return "Create recipes";
 	}
 }

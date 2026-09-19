@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "septemcraft:item/magnetic_shaft"
+  }
+}

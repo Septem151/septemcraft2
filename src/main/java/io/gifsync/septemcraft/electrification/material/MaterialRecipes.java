@@ -1,21 +1,25 @@
 package io.gifsync.septemcraft.electrification.material;
 
 import io.gifsync.septemcraft.namespace.Namespace;
+import io.gifsync.septemcraft.processing.AssemblyStep;
 import io.gifsync.septemcraft.processing.Chance;
 import io.gifsync.septemcraft.processing.Count;
+import io.gifsync.septemcraft.processing.CreateRecipe;
 import io.gifsync.septemcraft.processing.HeatRequirement;
+import io.gifsync.septemcraft.processing.Loops;
 import io.gifsync.septemcraft.processing.ProcessIngredient;
 import io.gifsync.septemcraft.processing.ProcessOutput;
 import io.gifsync.septemcraft.processing.ProcessType;
 import io.gifsync.septemcraft.processing.ProcessingRecipe;
 import io.gifsync.septemcraft.processing.ProcessingTime;
+import io.gifsync.septemcraft.processing.SequencedAssembly;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.common.Tags;
 
-/** The Create processing that turns sky stone into magnets. */
+/** The Create processing that turns sky stone into a magnetised shaft. */
 final class MaterialRecipes
 {
 	/** The namespace Applied Energistics 2 registers under. */
@@ -27,13 +31,20 @@ final class MaterialRecipes
 	/** The dust AE2 already has a name for, which the crushing wheels make rather than a grindstone. */
 	private static final ResourceLocation SKY_DUST = ResourceLocation.fromNamespaceAndPath(AE2, "sky_dust");
 
+	/** The Create shaft an assembly magnetises. */
+	private static final ResourceLocation SHAFT = ResourceLocation.fromNamespaceAndPath(CreateRecipe.NAMESPACE,
+		"shaft");
+
 	/** How much iron an ingot of alloy is stretched across. */
 	private static final int IRON_PER_MIX = 3;
 
+	/** How many magnets a shaft carries, and so how many passes the assembly takes. */
+	private static final int MAGNETS_PER_SHAFT = 4;
+
 	/** Every recipe the feature adds, in the order the chain runs. */
-	List<ProcessingRecipe> all()
+	List<CreateRecipe> all()
 	{
-		return List.of(crushSkyStone(), mixMagneticAlloy(), pressMagnet());
+		return List.of(crushSkyStone(), mixMagneticAlloy(), pressMagnet(), assembleMagneticShaft());
 	}
 
 	/**
@@ -43,7 +54,7 @@ final class MaterialRecipes
 	private ProcessingRecipe crushSkyStone()
 	{
 		return new ProcessingRecipe(
-			ResourceLocation.fromNamespaceAndPath(Namespace.ID, "sky_stone_block"),
+			own("sky_stone_block"),
 			ProcessType.CRUSHING,
 			List.of(ProcessIngredient.item(SKY_STONE)),
 			List.of(ProcessOutput.always(SKY_DUST), ProcessOutput.sometimes(SKY_STONE, new Chance(0.25F))),
@@ -65,12 +76,10 @@ final class MaterialRecipes
 		}
 
 		return new ProcessingRecipe(
-			ResourceLocation.fromNamespaceAndPath(Namespace.ID, Materials.MAGNETIC_ALLOY_INGOT),
+			own(Materials.MAGNETIC_ALLOY_INGOT),
 			ProcessType.MIXING,
 			ingredients,
-			List.of(ProcessOutput.always(
-				ResourceLocation.fromNamespaceAndPath(Namespace.ID, Materials.MAGNETIC_ALLOY_INGOT),
-				new Count(2))),
+			List.of(ProcessOutput.always(own(Materials.MAGNETIC_ALLOY_INGOT), new Count(2))),
 			HeatRequirement.HEATED,
 			Optional.empty());
 	}
@@ -79,11 +88,31 @@ final class MaterialRecipes
 	private ProcessingRecipe pressMagnet()
 	{
 		return new ProcessingRecipe(
-			ResourceLocation.fromNamespaceAndPath(Namespace.ID, Materials.MAGNET),
+			own(Materials.MAGNET),
 			ProcessType.PRESSING,
 			List.of(ProcessIngredient.tag(Materials.MAGNETIC_ALLOY_INGOTS)),
-			List.of(ProcessOutput.always(ResourceLocation.fromNamespaceAndPath(Namespace.ID, Materials.MAGNET))),
+			List.of(ProcessOutput.always(own(Materials.MAGNET))),
 			HeatRequirement.NONE,
 			Optional.empty());
+	}
+
+	/**
+	 * Shaft to magnetised shaft, along a line of deployers. Each pass drives one magnet into the
+	 * shaft, and the shaft carries what it has been given so far between them.
+	 */
+	private SequencedAssembly assembleMagneticShaft()
+	{
+		return new SequencedAssembly(
+			ProcessIngredient.item(SHAFT),
+			own(Materials.INCOMPLETE_MAGNETIC_SHAFT),
+			List.of(AssemblyStep.deploying(ProcessIngredient.item(own(Materials.MAGNET)))),
+			new Loops(MAGNETS_PER_SHAFT),
+			own(Materials.MAGNETIC_SHAFT));
+	}
+
+	/** A name in the mod's own namespace. */
+	private static ResourceLocation own(String item)
+	{
+		return ResourceLocation.fromNamespaceAndPath(Namespace.ID, item);
 	}
 }

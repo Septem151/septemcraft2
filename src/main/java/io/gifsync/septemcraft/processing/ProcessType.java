@@ -2,20 +2,20 @@ package io.gifsync.septemcraft.processing;
 
 import net.minecraft.resources.ResourceLocation;
 
-/** A Create machine, and so the recipe type a processing recipe carries. */
+/** A Create machine, and so the recipe type a recipe that runs on it carries. */
 public enum ProcessType
 {
 	/** Crushing wheels. */
 	CRUSHING("crushing"),
+
+	/** A deployer, holding whatever it applies. */
+	DEPLOYING("deploying"),
 
 	/** A basin under a mechanical mixer. */
 	MIXING("mixing"),
 
 	/** A mechanical press. */
 	PRESSING("pressing");
-
-	/** The namespace Create registers its recipe types under. */
-	private static final String CREATE = "create";
 
 	private final String path;
 
@@ -27,7 +27,7 @@ public enum ProcessType
 	/** The recipe type Create registers this machine's recipes under. */
 	public ResourceLocation type()
 	{
-		return ResourceLocation.fromNamespaceAndPath(CREATE, path);
+		return CreateRecipe.typeOf(path);
 	}
 
 	/** The folder a data pack files this machine's recipes in. */

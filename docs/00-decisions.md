@@ -617,10 +617,10 @@ they land in different places on the transmission-loss curve.
 assembly that deploys **four magnets over four passes**, carrying an incomplete generator shaft
 between them. The centrepiece of the chain is built on a line rather than in a grid.
 
-**What the finished shaft resolves to is open.** Whether it is the block a stack is built from,
-or a fitting that goes into a frame block the way coils go into a transformer per *Multiblocks*,
-is undecided, and nothing is registered for it until it is settled. The assembly above holds
-either way: the recipe is the same and only what it produces is in question.
+**The finished shaft registers as an item.** Whether it is the block a stack is built from, or a
+fitting that goes into a frame block the way coils go into a transformer per *Multiblocks*, is
+open, and settles with the generator itself. The assembly above holds either way: the recipe is
+the same, and a shaft that becomes a block keeps the id it carries as an item.
 
 ## 19. Registration
 

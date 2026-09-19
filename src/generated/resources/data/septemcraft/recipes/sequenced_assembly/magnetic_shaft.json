@@ -1,0 +1,33 @@
+{
+  "type": "create:sequenced_assembly",
+  "ingredient": {
+    "item": "create:shaft"
+  },
+  "loops": 4,
+  "results": [
+    {
+      "item": "septemcraft:magnetic_shaft"
+    }
+  ],
+  "sequence": [
+    {
+      "type": "create:deploying",
+      "ingredients": [
+        {
+          "item": "septemcraft:incomplete_magnetic_shaft"
+        },
+        {
+          "item": "septemcraft:magnet"
+        }
+      ],
+      "results": [
+        {
+          "item": "septemcraft:incomplete_magnetic_shaft"
+        }
+      ]
+    }
+  ],
+  "transitionalItem": {
+    "item": "septemcraft:incomplete_magnetic_shaft"
+  }
+}

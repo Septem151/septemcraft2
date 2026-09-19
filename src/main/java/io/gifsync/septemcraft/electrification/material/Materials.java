@@ -1,7 +1,8 @@
 package io.gifsync.septemcraft.electrification.material;
 
+import com.simibubi.create.content.processing.sequenced.SequencedAssemblyItem;
 import io.gifsync.septemcraft.namespace.Namespace;
-import io.gifsync.septemcraft.processing.ProcessingRecipe;
+import io.gifsync.septemcraft.processing.CreateRecipe;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.resources.ResourceLocation;
@@ -28,8 +29,16 @@ public final class Materials
 	/** The magnet an alternator segment carries. */
 	static final String MAGNET = "magnet";
 
+	/** A shaft part way through the assembly, carrying the magnets deployed onto it so far. */
+	static final String INCOMPLETE_MAGNETIC_SHAFT = "incomplete_magnetic_shaft";
+
+	/** The magnetised shaft a generator is built around. */
+	static final String MAGNETIC_SHAFT = "magnetic_shaft";
+
 	private final RegistryObject<Item> magneticAlloyIngot;
 	private final RegistryObject<Item> magnet;
+	private final RegistryObject<Item> incompleteMagneticShaft;
+	private final RegistryObject<Item> magneticShaft;
 
 	/** Registers the feature's items against the bus the loader is building the mod on. */
 	public Materials(IEventBus modEventBus)
@@ -37,16 +46,19 @@ public final class Materials
 		DeferredRegister<Item> items = DeferredRegister.create(ForgeRegistries.ITEMS, Namespace.ID);
 		magneticAlloyIngot = items.register(MAGNETIC_ALLOY_INGOT, () -> new Item(new Item.Properties()));
 		magnet = items.register(MAGNET, () -> new Item(new Item.Properties()));
+		incompleteMagneticShaft = items.register(INCOMPLETE_MAGNETIC_SHAFT,
+			() -> new SequencedAssemblyItem(new Item.Properties()));
+		magneticShaft = items.register(MAGNETIC_SHAFT, () -> new Item(new Item.Properties()));
 		items.register(modEventBus);
 	}
 
 	/** Every item the feature registers, in the order the chain makes them. */
 	public List<RegistryObject<Item>> items()
 	{
-		return List.of(magneticAlloyIngot, magnet);
+		return List.of(magneticAlloyIngot, magnet, incompleteMagneticShaft, magneticShaft);
 	}
 
-	/** The magnet, which is what the chain exists to produce. */
+	/** The magnet, which stands for the feature in a menu. */
 	public RegistryObject<Item> magnet()
 	{
 		return magnet;
@@ -57,6 +69,8 @@ public final class Materials
 	{
 		provider.add(magneticAlloyIngot.get(), "Magnetic Alloy Ingot");
 		provider.add(magnet.get(), "Magnet");
+		provider.add(incompleteMagneticShaft.get(), "Incomplete Magnetic Shaft");
+		provider.add(magneticShaft.get(), "Magnetic Shaft");
 	}
 
 	/** Models the feature's items as the flat sprites an ingredient wants. */
@@ -65,8 +79,8 @@ public final class Materials
 		items().forEach(item -> provider.basicItem(item.get()));
 	}
 
-	/** The Create processing that makes the feature's materials. */
-	public List<ProcessingRecipe> recipes()
+	/** The Create recipes that make the feature's materials. */
+	public List<CreateRecipe> recipes()
 	{
 		return new MaterialRecipes().all();
 	}

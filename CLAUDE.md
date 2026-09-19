@@ -16,9 +16,9 @@ src/main/java/io/gifsync/septemcraft
 ├── SeptemCraftData           GatherDataEvent, and the four providers beside it
 ├── structure                 Kind and @PackageKind - what a package is
 ├── namespace                 Namespace.ID - the mod id, where a feature can reach it
-├── processing                Create processing recipes, as records
+├── processing                Create machine recipes, as records
 └── electrification           the module root
-    └── material              magnetic alloy ingot and magnet, and their Create recipes
+    └── material              the alloy, the magnet, the magnetised shaft, and their recipes
 src/test/java                 ArchUnit over the structure, and JUnit over the model
 src/gametest/java             Forge GameTests, and the empty template they run in
 src/generated/resources       datagen output - committed, never hand-edited

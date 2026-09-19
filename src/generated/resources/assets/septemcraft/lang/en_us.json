@@ -1,5 +1,7 @@
 {
+  "item.septemcraft.incomplete_magnetic_shaft": "Incomplete Magnetic Shaft",
   "item.septemcraft.magnet": "Magnet",
   "item.septemcraft.magnetic_alloy_ingot": "Magnetic Alloy Ingot",
+  "item.septemcraft.magnetic_shaft": "Magnetic Shaft",
   "itemGroup.septemcraft": "SeptemCraft"
 }
