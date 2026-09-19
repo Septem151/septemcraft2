@@ -42,19 +42,32 @@ spotless {
     }
 }
 
-// Error Prone over every source set, with NullAway over the mod's own packages. A finding is an
-// error, never a warning, so nothing accumulates unattended. `-Xlint` is what turns javac's own
-// findings - a deprecated call, an unchecked cast, a raw type - into warnings at all; without it
-// javac reports them as notes that `-Werror` cannot see. `processing` is off because Error Prone
-// sits on the processor path without claiming an annotation.
+// Error Prone over every source set of this mod, with NullAway over the mod's own packages. A
+// finding is an error, never a warning, so nothing accumulates unattended. `-Xlint` is what turns
+// javac's own findings - a deprecated call, an unchecked cast, a raw type - into warnings at all;
+// without it javac reports them as notes that `-Werror` cannot see. `processing` is off because
+// Error Prone sits on the processor path without claiming an annotation.
+//
+// This is deliberately scoped to the mod's own source sets rather than to every JavaCompile.
+// ForgeGradle recompiles Minecraft itself through a JavaCompile task it creates on the fly, and
+// Minecraft's own sources carry hundreds of deprecation warnings: held to `-Werror` that recompile
+// fails, and with it every mapping change. The failure only appears when the mapped artifact is not
+// already cached, which is what makes it worth naming here.
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.errorprone {
-        disableWarningsInGeneratedCode = true
-        error 'NullAway'
-        option 'NullAway:AnnotatedPackages', mod_group_id
+    options.errorprone.enabled = false
+}
+
+[sourceSets.main, sourceSets.test, sourceSets.gametest]*.compileJavaTaskName.each { name ->
+    tasks.named(name, JavaCompile).configure {
+        options.errorprone {
+            enabled = true
+            disableWarningsInGeneratedCode = true
+            error 'NullAway'
+            option 'NullAway:AnnotatedPackages', mod_group_id
+        }
+        options.compilerArgs << '-Xlint:all,-processing' << '-Werror'
     }
-    options.compilerArgs << '-Xlint:all,-processing' << '-Werror'
 }
 
 println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
@@ -135,14 +148,10 @@ minecraft {
             args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
         }
 
-        /**
-         // This run config launches GameTestServer and runs all registered gametests, then exits.
-         // By default, the server will crash when no gametests are provided.
-         // The gametest system is also enabled by default for other run configs under the /test command.
-         gameTestServer {
-         property 'forge.enabledGameTestNamespaces', mod_id
-         }
-         **/
+        // Runs every registered GameTest headlessly and exits, which is what CI can use.
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
     }
 }
 

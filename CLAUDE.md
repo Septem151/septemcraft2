@@ -65,8 +65,8 @@ Three mechanisms, and they do not overlap:
 `./gradlew build` runs the first two and compiles the third. Both run configs set
 `forge.enabledGameTestNamespaces=septemcraft`, so any `@GameTestHolder(Namespace.ID)` class
 is picked up automatically. Run them from inside a dev client/server with `/test runall`, or
-`/test run <namespace>:<name>` for a single test. For a headless run-all-then-exit, uncomment the
-`gameTestServer` run config in `build.gradle` (then `./gradlew runGameTestServer`).
+`/test run <namespace>:<name>` for a single test. For a headless run-all-then-exit, the
+`gameTestServer` run config is enabled: `./gradlew runGameTestServer` runs every test and exits.
 
 ### Enforcement
 
@@ -75,7 +75,8 @@ Nothing here warns - each of these fails the build.
 - **Spotless** holds every source set to `config/eclipse-format.properties` - the RuneLite
   IntelliJ scheme translated for the Eclipse engine, so the build agrees with the IDE.
   `./gradlew spotlessApply` is the fix.
-- **Error Prone** runs as a compiler plugin over every source set, under `-Xlint:all -Werror`.
+- **Error Prone** runs as a compiler plugin over every source set of the mod, under
+  `-Xlint:all -Werror`.
   `-Xlint` is not optional: javac reports a deprecated call or an unchecked cast as a note that
   `-Werror` cannot see until a lint category asks for it.
 - **NullAway** treats `io.gifsync.septemcraft` as non-null by default. Minecraft and Forge are
@@ -93,8 +94,15 @@ version or mod name in those resource files** - add a property and reference it.
 `mod_id` (`septemcraft`) must stay in sync with `Namespace.ID`; changing one without the other
 breaks mod loading silently at the resource level.
 
-Mappings are **Parchment `2023.10.08-1.20.2`** layered over official - parameter names and javadocs
+Mappings are **Parchment `2023.09.03-1.20.1`** layered over official - parameter names and javadocs
 are available on Minecraft classes, unlike plain official mappings.
+
+**The Parchment export must be built for 1.20.1.** A 1.20.2 export applied to 1.20.1 looks like it
+works and quietly leaves methods unmapped: `2023.10.08-1.20.2` left 592 of them with SRG names in
+the Minecraft jar - `CriterionTrigger.getId()` among them - while ForgeGradle remapped dependency
+jars with the complete mapping. Any mod implementing one of those 592 then fails at runtime with an
+`AbstractMethodError` naming an `m_` method. AE2 does exactly that, which cost an afternoon. Under
+`2023.09.03-1.20.1` no class in the jar carries an SRG method name.
 
 `src/generated/resources` is a resource source dir and the `data` run config is live, so
 `./gradlew runData` rewrites it. Generated files are committed and never edited by hand - change
@@ -104,21 +112,11 @@ Run configs set `mixin.env.remapRefMap` and `mixin.env.refMapRemappingFile`. Wit
 dependency mod whose refmap ForgeGradle does not rewrite looks for SRG member names in a mapped
 runtime, and its mixins fail outright.
 
-**Open problem: AE2 does not load in this dev runtime.** Any run that boots the game with
-`ae2` present dies in `Bootstrap.bootStrap`, before any mod's own loading:
-
-```
-AbstractMethodError: Receiver class appeng.core.stats.AppEngAdvancementTrigger does not define or
-inherit an implementation of the resolved method 'abstract ResourceLocation m_7295_()' of interface
-net.minecraft.advancements.CriterionTrigger
-```
-
-The same failure appears whether the jar is consumed through `fg.deobf` or not, so it is AE2
-15.4.10's artifact against Forge 47.4.23 userdev rather than anything in this build. What is in
-`src/generated/resources` was generated with AE2 off the runtime classpath, which changes nothing
-about the output - AE2 appears in the recipes only as id strings, and data generation never loads
-its classes. Running the GameTests needs it fixed, because the crushing recipe names AE2 items and
-will not load without them.
+Error Prone, NullAway and `-Werror` are scoped to the mod's own source sets rather than to every
+`JavaCompile`. ForgeGradle recompiles Minecraft through a `JavaCompile` task it creates on the fly,
+and Minecraft's own sources carry hundreds of deprecation warnings - held to `-Werror` that
+recompile fails, and with it any mapping change. It only shows up when the mapped artifact is not
+already cached, so it stays invisible until the day it blocks everything.
 
 ## Design docs - read these before writing feature code
 

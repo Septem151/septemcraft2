@@ -22,11 +22,15 @@ than by number - they get reordered, and numbers cited elsewhere go stale.
 | Create    | **6.0.8**                     |
 | AE2       | **15.4.10**                   |
 | Java      | 17                            |
-| Mappings  | Parchment `2023.10.08-1.20.2` |
+| Mappings  | Parchment `2023.09.03-1.20.1` |
 | Gradle    | 8.8 wrapper                   |
 | Mod id    | `septemcraft`                 |
 | Package   | `io.gifsync.septemcraft`      |
 | Licence   | GNU GPLv3                     |
+
+The Parchment export is the one built for 1.20.1. An export built for another version applied to
+1.20.1 leaves methods unmapped in the Minecraft jar while dependency jars are remapped in full, and
+a dependency implementing one of them fails at runtime rather than at build time.
 
 **Repository structure.** The electrification system is a **module inside the
 SeptemCraft mod**. Other, unrelated "opinionated world" content may live
