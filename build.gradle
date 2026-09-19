@@ -203,6 +203,9 @@ dependencies {
     implementation fg.deobf("appeng:appliedenergistics2-forge:${ae2_version}")
     runtimeOnly fg.deobf("maven.modrinth:guideme:${guideme_version}")
 
+    // JUnit over the model, and ArchUnit over the package structure. Both live in `src/test/java`;
+    // ArchUnit's DoNotIncludeTests option is what keeps the model tests out of the structural analysis.
+    testImplementation "org.junit.jupiter:junit-jupiter:${junit_version}"
     testImplementation "com.tngtech.archunit:archunit-junit5:${archunit_version}"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:${junit_version}"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"

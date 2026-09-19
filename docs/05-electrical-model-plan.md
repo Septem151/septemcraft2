@@ -1,0 +1,276 @@
+# Electrical Model Implementation Plan
+
+Scope: the quantity mapping, the circuit solver, and the seam to Create's kinetic network. No
+blocks, no items, no registration, no rendering, no datagen. The generator's construction - what a
+stator is, how it is wound, how many housings make a machine - is undecided and deliberately not
+needed here. A new agent can finish this plan without it.
+
+Sources: *Electrical quantities*, *Transmission range* and *Failure model* in `../00-decisions.md`.
+The first of those is **superseded in part** by what follows, and that file has not yet been
+edited - see *What this supersedes*.
+
+## The model
+
+Rotation and electricity are one two-quantity system. Mechanically power is torque times angular
+velocity; electrically it is voltage times current. A real machine trades one pair for the other,
+and the mapping follows from that rather than from preference:
+
+| Electrical     | In Create                                | Relation                   |
+|----------------|------------------------------------------|----------------------------|
+| **Voltage**    | shaft RPM at the machine                 | `V = VOLTS_PER_RPM x RPM`  |
+| **Current**    | torque, which Create calls stress impact | `I = su/RPM`               |
+| **Power**      | stress units                             | `P = V x I`, and `SU = impact x RPM` |
+| **Resistance** | RPM squared per stress unit              | `R = V / I`                |
+
+At one volt per RPM and one watt per stress unit, **one ampere is one su/RPM exactly**, and one ohm
+is one RPM per su/RPM. Watts and total stress stay one currency, so power is conserved across every
+machine and nothing is created at the boundary.
+
+Two consequences that are easy to miss:
+
+- **A machine with a fixed stress impact is a constant-current device**, not a resistor. A true
+  resistor's impact rises with the speed it sees, because it draws `V/R` at `V` volts and so eats
+  `V squared / R` of stress. Both are expressible; the solver must not assume the first.
+- **A generator's impact is the current its grid is drawing.** Unloaded it costs almost nothing to
+  turn; loaded it costs exactly its wattage. Nothing about the machine's construction sets its
+  current - its copper sets the current it can *survive*.
+
+## The solve
+
+**Full nodal analysis over the whole circuit.** The alternative considered and rejected was a
+radial sweep with declared load classes, which is cheaper and simpler but cannot represent a ring
+busbar or two generators on one bus. Both of those are builds this mod expects people to make, and
+the second produces reverse power flow - a fast machine motoring a slow one through the grid, and
+in Create terms spinning that machine's water wheels - which is the kind of consequence the mod
+exists to have.
+
+What that buys, and what it costs, is recorded here so it is not relitigated: the arithmetic is
+identical to a radial sweep on every single-feed build. Nodal analysis is not more accurate. It is
+more *permissive*, and its cost is a linear solve that has to be numerically right.
+
+## Standing rules
+
+1. **No agent resolves an open question.** Where a task needs one, it produces the seam - an
+   interface, or a named constant - and reports the blockage.
+2. **No magic numbers.** Every quantity traces to a named constant carrying its provenance. The
+   constants file is the only place provenance is written; javadoc describes the member it is on and
+   cites nothing.
+3. **The circuit package is plain Java.** No Minecraft type, no Forge type, no Create type. It is
+   tested by JUnit, which needs no world. An agent that finds this untenable reports back rather
+   than importing.
+4. **Quantities may be negative.** Reverse power is a first-class outcome, not an error: a machine
+   can be driven by its own grid. A quantity record guards finiteness and nothing else. An agent
+   that adds a non-negative check has misread this.
+5. Package roots: `io.gifsync.septemcraft.electrification.circuit` - shared, plain Java, the model
+   and the solver. `io.gifsync.septemcraft.electrification.grid` - shared, the live level-wide
+   network and its persistence. Neither may import a feature.
+
+## Order
+
+```
+E1 ──▶ E2 ──▶ E3 ──▶ E4 ──▶ E5 ──┬──▶ E6 ──┐
+                                  ├──▶ E7 ──┼──▶ E9
+                                  └──▶ E8 ──┘
+```
+
+E6, E7 and E8 run in parallel. Everything else is sequential.
+
+## E1. Quantities and constants
+
+Depends on nothing; blocks everything.
+
+`Volts`, `Amperes`, `Watts` and `Ohms` as records over a finite double, signed. Arithmetic that
+crosses them returns the right type - volts over ohms is amperes - so a wrong pairing does not
+compile.
+
+| Constant                       | Status                                                          |
+|--------------------------------|-----------------------------------------------------------------|
+| `VOLTS_PER_RPM`                | settled at 1                                                    |
+| `WATTS_PER_STRESS_UNIT`        | settled at 1 - the one balance lever between the two economies  |
+| `OHMS_PER_BLOCK`, per conductor form | provisional - no wire gauge exists, so a form has one figure |
+| `WINDING_RESISTANCE`           | provisional - sets how stiffly parallel machines share load, and so how far a gearing mismatch goes before one motors the other |
+| `CONVERGENCE_TOLERANCE`        | provisional                                                     |
+| `MAX_ITERATIONS`               | provisional                                                     |
+| `MAX_NODES_PER_CIRCUIT`        | provisional - the ceiling the dense solver of E3 is chosen under |
+
+**Acceptance.** Every provisional value is reachable from one file, and the rest of both packages
+holds no numeric literal but 0, 1 and 2.
+
+## E2. The circuit as a value
+
+Depends on E1.
+
+An immutable description of one electrical circuit: nodes, resistive edges, voltage sources carrying
+an electromotive force and an internal resistance, and loads attached to nodes. The live network of
+E7 builds a new one when topology changes; nothing mutates a circuit in place.
+
+**Every circuit is two conductors.** Both are modelled - a line out and a line back - rather than
+one line with an implied return. It doubles the node count and it is what makes a short a
+consequence rather than a special case.
+
+**Zero-resistance edges are contracted before solving.** Two blocks bolted together are one node.
+Done with a union-find pass at construction, which also removes the singular matrix a 0 ohm edge
+would otherwise hand E3.
+
+**Acceptance.** Contraction merges a chain of zero-resistance edges to a single node. A circuit
+carrying no source is legal and solves to zero throughout. A circuit whose graph is disconnected
+solves each part independently and neither part sees the other's sources.
+
+## E3. The linear solve
+
+Depends on E2.
+
+Modified nodal analysis. One node is the voltage reference; every other node's voltage and every
+source's current are unknowns.
+
+Dense Gaussian elimination with partial pivoting is adequate at the node counts `MAX_NODES_PER_CIRCUIT`
+permits, and that constant exists to keep it true. A sparse solver is a later optimisation and is
+not to be anticipated with an interface - the class is named directly, and a second implementation
+is what earns an abstraction.
+
+Degenerate cases are outcomes, never exceptions escaping the package: a circuit with no running
+source de-energises; a singular system is reported and de-energises rather than propagating NaN.
+
+**Acceptance.** A resistive divider, a parallel pair and a bridge each match hand-computed values.
+The ring fixture below gives 0.018 ohms to the tap opposite the feed, and 0.072 ohms with one side
+of the ring cut. The two-generator fixture reproduces its negative current - a test that asserts a
+generator is being motored, since that is the behaviour this whole approach was chosen for.
+
+## E4. Load classes and convergence
+
+Depends on E3.
+
+Three load classes as an enum: constant resistance, constant current, constant power. A constant
+power load is nonlinear, so it is linearised at its present terminal voltage and the solve repeats
+until voltages settle within `CONVERGENCE_TOLERANCE`.
+
+**Start flat, at source electromotive force, and damp.** A constant-power load on a resistive line
+has two mathematically valid operating points - the fixture below settles at 96 V and 10.67 A, and
+also satisfies itself at 32 V and 32 A. The second is physically unstable and must never be
+returned. A flat start converges to the first; an arbitrary start does not.
+
+On reaching `MAX_ITERATIONS` without settling, the last converged state is held and the failure is
+reported. An oscillating grid is not allowed to become an oscillating world.
+
+**Acceptance.** Both single-feed fixtures below, to the figures given. A test seeded near the
+unstable root converges to 96 V rather than to 32 V.
+
+## E5. Transformers as circuit elements
+
+Depends on E4.
+
+A two-winding ideal transformer is an element, not a voltage adjustment applied afterwards: it
+couples two circuits with `V2 = n x V1` and `I1 = -n x I2`, which in nodal analysis is a current
+unknown and two constraint rows.
+
+**The element takes a ratio and asks no questions about where it came from.** How a coil's winding
+count becomes a voltage rating is an open question about transformer construction, and answering it
+here would be answering it for the whole mod. A loss fraction applies to power crossing the element.
+
+**Acceptance.** The stepped fixture below holds: the same load behind a matched step-up and
+step-down pair draws 2.02 A on the line rather than 10.67 A, and the line loses 12.3 W rather than
+341 W. Power in equals power out less exactly one loss deduction.
+
+## E6. The Create seam
+
+Depends on E5. Parallel with E7 and E8.
+
+A generator's electromotive force is its shaft speed times `VOLTS_PER_RPM`, so Create's 256 RPM
+ceiling is the voltage ceiling at any machine and every volt above it comes from a transformer.
+
+Its stress impact is the current the last solve gave it, pushed into Create with
+`KineticNetwork.updateStressFor`, which takes a changed impact on a live network.
+
+**Establish before anything depends on it: whether one block entity may cross from consuming stress
+to providing it.** A motored generator draws negative current, which is a machine adding capacity to
+its kinetic network rather than drawing from it. If Create will not carry that on one block entity,
+the seam is two block entities or a reported blockage - never a silent clamp to zero, which would
+delete the phenomenon this approach was chosen to produce.
+
+**Create's overstress is a hard stop.** When impact exceeds capacity the whole kinetic network
+halts; it does not sag. The electrical side must survive its source dropping to zero RPM and back
+without oscillating between the two states.
+
+**Acceptance.** A GameTest reads a generator's draw off Create's own figure and matches it to the
+solved watts. Removing the load drops the draw to the machine's idle figure. Stalling the kinetic
+network de-energises the grid and restarting it restores the same solution.
+
+## E7. The live network
+
+Depends on E5. Parallel with E6 and E8.
+
+The graph is level-wide and **held in saved data, never rebuilt by scanning blocks**: a line must
+keep working with the middle of it unloaded, so the middle cannot be a thing that has to tick to
+exist. Blocks declare their connections as they are placed and broken, and the graph is restored
+from disk rather than rediscovered.
+
+Solving is dirty-flagged and runs at most once per tick. The triggers are enumerated in one place:
+topology change, switch state, a generator's speed moving past a threshold, and a load changing
+state.
+
+**Acceptance.** A GameTest builds a line, unloads the chunks in the middle, and the far end holds
+its voltage. The graph round-trips a server restart. Two changes in one tick provoke one solve.
+
+## E8. What an instrument reads
+
+Depends on E5. Parallel with E6 and E7.
+
+One read API over the last solved state - a voltage at a node, a current in a branch. Meters,
+current transformers, relays and breakers all read it, and **nothing computes a number of its own**.
+The point of choosing a solver was that the instrumentation layer reports measurements rather than
+assertions, and an instrument that re-derives its reading throws that away.
+
+**Acceptance.** Two instruments on one branch return an identical value, and that value is the
+solver's own.
+
+## E9. Audit
+
+Depends on all. Run last, by a fresh agent that wrote none of the code.
+
+Enumerate every provisional constant and every deferred seam. Confirm the circuit package imports
+no Minecraft, Forge or Create type. Confirm no open question was answered implicitly - a picked
+winding rule, an invented conductor rating, a class boundary. The output is a report, not a change.
+
+## Fixtures
+
+The JUnit corpus. Figures are the converged answers, not first-pass estimates.
+
+**Single feed.** 128 V source, 300 blocks of line at 0.01 ohms per block, a 1,024 W constant-power
+load at the far end. Solving `(128 - 3I) x I = 1024`:
+
+| Quantity          | Value      |
+|-------------------|------------|
+| Line current      | 10.67 A    |
+| Far-end voltage   | 96 V       |
+| Line loss         | 341 W      |
+| Source power      | 1,365 W, and so 1,365 su drawn |
+
+**The same feed, stepped up.** The same load behind a matched pair of transformers at 512 V:
+2.02 A, 506 V at the far end, 12.3 W lost. Twenty-eight times less copper burned on one delivery.
+
+**Two generators.** Sources of 128 V and 120 V, each with 0.5 ohms of winding resistance, on one
+busbar feeding 1,024 W. The bus settles at 121.90 V; the fast machine supplies 12.20 A and the slow
+machine **-3.80 A**, absorbing 463 W into its shaft. This fixture is the reason for nodal analysis
+and is not to be relaxed.
+
+**The ring busbar.** A 36-block loop at 0.002 ohms per block with the load tapped opposite the feed:
+two 18-block paths in parallel, 0.018 ohms. With one side of the ring cut, 0.072 ohms and the load
+still fed.
+
+## What this supersedes
+
+`../00-decisions.md` has not been edited. *Electrical quantities* currently says that current is a
+derived readout rather than a primary quantity, and *First vertical slice* says each generator
+segment contributes a fixed stress impact. Under this model current is solved for and a generator's
+impact answers to its load, so both statements need rewriting, and the scaling law that follows from
+them - stack length as current, shaft speed as voltage - needs restating as a consequence of the
+solve rather than as a rule of its own. Doing that is the first act of whoever picks this up, or the
+author's, before they do.
+
+## Out of scope
+
+Blocks, items, registration, rendering and datagen. The generator's construction and the stator's
+geometry. Voltage classes and their boundaries. Batteries and the Forge Energy boundary. Wire
+gauges, which do not exist. Reactance and power factor - **the solver is purely resistive, AC and DC
+are a label on a circuit and nothing in the mathematics tells them apart**, and no task above may
+assume otherwise.

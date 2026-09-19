@@ -1,7 +1,7 @@
 # Design Decisions - Electrification Module
 
 Status: **ideation**, with the materials chain built. Everything else is unwritten.
-Last updated: 2026-09-18
+Last updated: 2026-09-19
 
 This file records decisions that are **settled**. Anything not here is either in
 `legacy/01-open-questions.md` or has not been raised yet. Do not infer a decision from
@@ -88,34 +88,49 @@ Create rotation  →  generator  →  electrical grid  →  battery  →  FE  �
 
 ## 6. Electrical quantities
 
-**RPM → volts, total SU → watts, current derived as P/V.**
+**RPM → volts, total SU → watts, and current is what the circuit solves for.**
 
-| Create quantity           | Electrical        | Status  |
-|---------------------------|-------------------|---------|
-| Shaft speed (RPM)         | **Voltage**       | primary |
-| Total network stress (su) | **Watts**         | primary |
-| -                         | **Current** = P/V | derived |
+| Create quantity            | Electrical      | Status                       |
+|----------------------------|-----------------|------------------------------|
+| Shaft speed (RPM)          | **Voltage**     | primary                      |
+| Total network stress (su)  | **Watts**       | primary                      |
+| Stress impact (su/RPM)     | **Current**     | solved, per machine, per tick |
 
 "SU" here is the **total stress** figure: Create's `impact × RPM` product, the number
-the goggles show against capacity.
+the goggles show against capacity. At one volt per RPM and one watt per stress unit,
+**one ampere is one su/RPM exactly**, and one ohm is one RPM per su/RPM.
 
-**Current is a derived readout, not a primary quantity.** Nameplates, tooltips and
-Ponder scenes are written in volts and watts - `1,024 W @ 128 V`, the way a real
-genset is rated - because that is the form Create's goggles have already taught.
-Protection hardware is the exception: ampacities and breaker ratings are given in amps,
-because current is the quantity they act on.
+**Current is solved for, not declared.** Every energised circuit is solved as a circuit -
+sources, resistances and loads together - and a machine's current is the answer that solve
+gives it. Its stress impact is that answer handed back to Create. Nothing about a machine's
+construction sets its current; its copper sets the current it can *survive*. A generator
+turning into an open circuit costs almost nothing to turn, and the same generator into a
+full load costs exactly its wattage.
+
+**A fixed stress impact is a constant-current device, not a resistor.** A resistor's impact
+rises with the speed it sees, because it draws `V/R` at `V` volts and so eats `V² / R` of
+stress. Both exist, and they are not the same machine.
+
+**Power can flow backwards.** Two generators on one bus settle at one bus voltage, and a
+machine whose shaft is geared slower than that voltage absorbs current instead of supplying
+it - Create sees it adding capacity to its kinetic network rather than drawing from it.
+Reverse power is an outcome of the model, never an error to be clamped away.
+
+Nameplates, tooltips and Ponder scenes are written in volts and watts - `1,024 W @ 128 V`,
+the way a real genset is rated - because that is the form Create's goggles have already
+taught. Protection hardware is the exception: ampacities and breaker ratings are given in
+amps, because current is the quantity they act on.
 
 Consequences:
 
 - **Watts and total SU are one currency.** Power is conserved across the generator.
   There is no separate electrical economy to balance against Create's.
-- **Equal Create cost buys equal power.** One generator geared to 128 RPM and four
-  of the same generator at 32 RPM draw the same total stress and produce the same
-  wattage. They differ only in V and I.
-- **Gearing trades voltage for current at constant power.** Since
-  `I = P/V = (impact × RPM) / RPM`, current tracks the generator's `su/RPM` impact
-  rating and is independent of shaft speed. A transformer is a gearbox; that is the
-  intended teaching hook.
+- **Equal Create cost buys equal power.** One generator geared to 128 RPM and four of the
+  same generator at 32 RPM carrying the same load draw the same total stress and deliver
+  the same wattage. They differ only in V and I.
+- **Gearing trades voltage for current at constant power.** A machine's rated current
+  follows its copper and is independent of shaft speed, so gearing it up buys volts at the
+  same amps. A transformer is a gearbox; that is the intended teaching hook.
 - **Every device has a voltage rating.** Below it the device does not run; from there up
   to the ceiling of its voltage class it runs normally, and above that ceiling it fails
   per *Failure model*. Because RPM *is* voltage, "this lamp needs 64 V" is the same
@@ -595,21 +610,24 @@ plant room.
 the stack and converge there; a segment does not have output of its own, so there is no
 tapping into the middle of a machine.
 
-**The scaling law follows from *Electrical quantities*.** Each segment contributes a
-fixed stress impact (su/RPM). Since `I = P/V = (impact ×
-RPM) / RPM`, that is exactly the definition of current:
+**The scaling law follows from *Electrical quantities*.** A segment is copper in series down
+the stack, so what a segment adds is the current the machine can carry, and the shaft's speed
+is the voltage it produces. Neither of them is what the machine draws: that is its grid's to
+decide, and the solve decides it.
 
-| Physical fact         | Electrical consequence                      |
-|-----------------------|---------------------------------------------|
-| Segments in the stack | **Current** - each segment adds a fixed `I` |
-| Shaft speed           | **Voltage**                                 |
-| The two multiplied    | **Watts**, equal to the stress drawn        |
+| Physical fact         | Electrical consequence                           |
+|-----------------------|--------------------------------------------------|
+| Segments in the stack | **Rated current** - each segment adds a fixed `I` |
+| Shaft speed           | **Voltage**                                      |
+| The two multiplied    | **Rated watts** - what the machine can deliver   |
 
-So a longer stack is a higher-current machine, gearing the shaft faster is a
-higher-voltage one, and the stress Create sees is the wattage produced - power is
-conserved across the generator. The two ways to build a bigger
-generator are to lengthen the stack or to gear it up, and they are not interchangeable:
-they land in different places on the transmission-loss curve.
+What the machine actually delivers is what its grid draws, and the stress Create sees is that
+wattage - power is conserved across the generator. So a longer stack is a higher-current
+machine and gearing the shaft faster is a higher-voltage one. The two ways to build a bigger
+generator are to lengthen the stack or to gear it up, and they are not interchangeable: they
+land in different places on the transmission-loss curve, and they run out differently - a
+stack worked past its rated current burns copper per *Failure model*, where voltage is capped
+by the class of what the machine is wired to.
 
 ### The rotor
 
