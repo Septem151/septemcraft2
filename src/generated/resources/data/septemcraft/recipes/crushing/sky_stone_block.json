@@ -1,0 +1,18 @@
+{
+  "type": "create:crushing",
+  "ingredients": [
+    {
+      "item": "ae2:sky_stone_block"
+    }
+  ],
+  "processingTime": 250,
+  "results": [
+    {
+      "item": "ae2:sky_dust"
+    },
+    {
+      "chance": 0.25,
+      "item": "ae2:sky_stone_block"
+    }
+  ]
+}
