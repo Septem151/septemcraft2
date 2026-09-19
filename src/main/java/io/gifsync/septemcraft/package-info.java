@@ -1,6 +1,6 @@
 /**
- * The mod's entrypoint and configuration. Wires up the modules beneath it and is imported by none
- * of them.
+ * The mod's entrypoint, configuration and data generation. Wires up the modules beneath it and is
+ * imported by none of them.
  */
 @PackageKind(Kind.COMPOSITION_ROOT)
 package io.gifsync.septemcraft;
