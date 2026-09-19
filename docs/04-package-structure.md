@@ -5,10 +5,16 @@
 ```
 io.gifsync.septemcraft          mod root - entrypoint, config, datagen
 ├── structure                   the kind annotation
+├── namespace                   the mod id
+├── processing                  Create processing recipes, as values
 └── <module>                    module root
     ├── <shared>                the model
     └── <feature>               the machines
 ```
+
+A shared package may sit at the mod root as well as inside a module. `structure`, `namespace` and
+`processing` are shared by every module, so they sit above all of them; a model only one module
+needs belongs inside that module.
 
 The module is a package level of its own. The first and only module is `electrification`.
 The mod root and every module root is a composition root: the mod root assembles the modules, a
@@ -49,6 +55,23 @@ package io.gifsync.septemcraft.electrification.transformer;
   datagen.
 - **GameTests never ship in the jar.** They live in `src/gametest/java`, mirroring the package
   names so they keep package-private access to what they test.
+
+## What the rules force on registration
+
+The mod root is a composition root with no root above it, so **nothing may import it**, the `@Mod`
+class included. That is why the mod id does not live there. Registration has a shape it cannot
+avoid:
+
+- **The mod id lives in a shared package.** `Namespace.ID`, imported by anything that needs to
+  name what it registers.
+- **A feature holds its own `DeferredRegister`** and exposes its registry objects through the one
+  public type its root package is allowed. It is constructed with the mod event bus rather than
+  registering itself statically.
+- **The mod root reaches a feature only through its module root.** `SeptemCraftMod` builds
+  `Electrification`, which builds the features; the tab and the data providers ask the module,
+  never the feature.
+- **Whatever enumerates features is a composition root**, so the creative tab and data generation
+  live at the mod root even though what fills them belongs to the features.
 
 ## Enforcement
 

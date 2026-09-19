@@ -1,7 +1,7 @@
 # Design Decisions - Electrification Module
 
-Status: **ideation**. No code changes yet.
-Last updated: 2026-09-17
+Status: **ideation**, with the materials chain built. Everything else is unwritten.
+Last updated: 2026-09-18
 
 This file records decisions that are **settled**. Anything not here is either in
 `legacy/01-open-questions.md` or has not been raised yet. Do not infer a decision from
@@ -177,7 +177,25 @@ what it is - a coil of six windings is a different device from the same block wi
 
   Sky stone is crushed to dust, the dust is mixed with iron and heated into a
   magnetic alloy ingot, and the ingot is pressed into a magnet. Each alternator
-  segment carries one.
+  segment carries one. The chain is settled end to end:
+
+  | Step  | Machine                   | In                             | Out                                  |
+  |-------|---------------------------|--------------------------------|--------------------------------------|
+  | Crush | Crushing wheels           | 1 sky stone block              | 1 sky stone dust, + the block at 25% |
+  | Alloy | Basin over a Blaze Burner | 1 sky stone dust + 3 iron ingots | 2 magnetic alloy ingots            |
+  | Press | Mechanical press          | 1 magnetic alloy ingot         | 1 magnet                             |
+
+  **The dust is AE2's own `ae2:sky_dust`**, not a dust of the mod's own. The mod's chain begins
+  at the alloy, AE2's grindstone stays a slower route to the same item, and what crushing wheels
+  buy is the quarter chance of handing the block back whole.
+
+  **The alloy is iron-heavy.** Sky stone is the scarce half, so one dust stretched across three
+  iron makes a meteorite a supply of alloy rather than an ingot-for-ingot trade, and puts the
+  volume cost on an iron industry.
+
+  **The press reads a tag.** The ingot carries `forge:ingots/magnetic_alloy` and the pressing
+  recipe names that tag rather than the item, so a second route to the same alloy substitutes
+  without touching the recipe.
 
 - **Conductor: copper**, from vanilla, drawn into wire in a single step. Wire is the
   branch point of the chain: strung as-is for catenary, wound into the coils of
@@ -588,3 +606,40 @@ higher-voltage one, and the stress Create sees is the wattage produced - power i
 conserved across the generator. The two ways to build a bigger
 generator are to lengthen the stack or to gear it up, and they are not interchangeable:
 they land in different places on the transmission-loss curve.
+
+### The rotor
+
+**A magnetised shaft is assembled, not crafted.** A Create shaft runs through a sequenced
+assembly that deploys **four magnets over four passes**, carrying an incomplete generator shaft
+between them. The centrepiece of the chain is built on a line rather than in a grid.
+
+**What the finished shaft resolves to is open.** Whether it is the block a stack is built from,
+or a fitting that goes into a frame block the way coils go into a transformer per *Multiblocks*,
+is undecided, and nothing is registered for it until it is settled. The assembly above holds
+either way: the recipe is the same and only what it produces is in question.
+
+## 19. Registration
+
+**The mod id lives in a shared package**, not on the `@Mod` class. Per *Package Structure* nothing
+may import the mod root, so a feature that needs to name what it registers would otherwise have
+nothing to name it with. `Namespace.ID` is the one place the string `septemcraft` appears in code,
+and `gradle.properties` holds the other copy that `mods.toml` is expanded from.
+
+**A feature registers its own objects and exposes them through its one public type.** The
+`DeferredRegister` is built inside the feature and handed the mod event bus by the module root,
+which is handed it by the mod root. Nothing is static: each is constructed with what it needs.
+
+**One creative tab, `SeptemCraft`**, iconed with the magnet. The mod root registers it and fills it
+by asking each module for its items, because per *Package Structure* whatever enumerates features is
+a composition root.
+
+**Data generation is one provider per kind, filled by the modules.** A locale is one file, so two
+language providers would collide; rather than split the rule by provider, all four - language, item
+models, recipes and tags - live at the mod root and each module contributes its own content into
+them. A module's recipes, names and models stay the module's to write.
+
+**Recipes are values.** A Create processing recipe is a record in a shared package, not JSON written
+by hand and not Create's own recipe builders, so a recipe is type-checked at compile time and the
+mod holds no compile dependency on Create's datagen internals. What a wrong key still costs is
+caught by a GameTest, which loads the generated pack in a real world and checks every declared
+recipe came back under the Create type it was written for.
