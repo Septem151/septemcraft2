@@ -16,13 +16,13 @@ import java.util.Optional;
  * other point's potential is an unknown, as is the current in each element that fixes a potential
  * rather than answering to one.
  *
- * <p>Built once for a solve and asked for readings as often as it takes. What is a point, and which
+ * <p>Built once for a solution and asked for readings as often as it takes. What is a point, and which
  * unknown each one is, cannot change while a circuit is being solved - only what its devices are
  * drawing.
  */
 final class NodalAnalysis
 {
-	/** What something the solve does not carry an unknown for holds in place of one. */
+	/** What something the solution does not carry an unknown for holds in place of one. */
 	private static final int NO_UNKNOWN = -1;
 
 	private final Circuit circuit;
@@ -125,9 +125,10 @@ final class NodalAnalysis
 
 	/**
 	 * What this circuit reads with every device drawing what the potentials given have it draw, or
-	 * nothing at all where the circuit does not determine its own answer.
+	 * nothing at all where the circuit does not determine its own answer. The potentials are given by
+	 * node index, as a solve carries them from one pass to the next.
 	 */
-	Optional<CircuitReadings> readingsAt(Map<NodeId, Volts> given)
+	Optional<CircuitReadings> readingsAt(double[] given)
 	{
 		LinearSystem system = invariant.copy();
 		stampLoads(system, given);
@@ -149,8 +150,8 @@ final class NodalAnalysis
 
 	/**
 	 * Writes every machine onto the system. One whose windings resist becomes a current behind that
-	 * resistance; one whose windings do not holds the potential across itself and carries a current
-	 * of its own.
+	 * resistance; one whose windings do not resist holds the potential across itself and carries a
+	 * current of its own.
 	 */
 	private void stampSources(LinearSystem system)
 	{
@@ -177,7 +178,7 @@ final class NodalAnalysis
 	 * which the solve then answers exactly; any other is the current the potentials given have it
 	 * drawing, and a device below its minimum is not written at all.
 	 */
-	private void stampLoads(LinearSystem system, Map<NodeId, Volts> given)
+	private void stampLoads(LinearSystem system, double[] given)
 	{
 		for (Load load : circuit.loads())
 		{
@@ -221,45 +222,45 @@ final class NodalAnalysis
 	}
 
 	/** Reads the solved unknowns back out as the currents and potentials a circuit is carrying. */
-	private CircuitReadings read(double[] solved, Map<NodeId, Volts> given)
+	private CircuitReadings read(double[] solved, double[] given)
 	{
-		Map<NodeId, Volts> voltages = new HashMap<>();
-		for (NodeId node : circuit.nodes())
+		double[] voltages = new double[point.length];
+		for (int node = 0; node < voltages.length; node++)
 		{
-			int unknown = unknownOfPoint[point[node.index()]];
-			voltages.put(node, unknown < 0 ? Volts.ZERO : new Volts(solved[unknown]));
+			int unknown = unknownOfPoint[point[node]];
+			voltages[node] = unknown < 0 ? 0.0 : solved[unknown];
 		}
 
-		Map<ElementId, Amperes> currents = new HashMap<>();
+		double[] currents = new double[circuit.elements().size()];
 		for (Conductor conductor : circuit.conductors())
 		{
 			if (!conductor.resistance().isNone())
 			{
-				currents.put(conductor.id(),
-					potential(voltages, conductor.from(), conductor.to()).over(conductor.resistance()));
+				currents[conductor.id().index()] = potential(voltages, conductor.from(), conductor.to())
+					.over(conductor.resistance()).value();
 			}
 		}
 
 		for (int index = 0; index < circuit.sources().size(); index++)
 		{
 			Source source = circuit.sources().get(index);
-			currents.put(source.id(), source.internalResistance().isNone()
-				? new Amperes(solved[unknownOfSource[index]])
+			currents[source.id().index()] = source.internalResistance().isNone()
+				? solved[unknownOfSource[index]]
 				: source.electromotiveForce().minus(potential(voltages, source.to(), source.from()))
-					.over(source.internalResistance()));
+					.over(source.internalResistance()).value();
 		}
 
 		for (Load load : circuit.loads())
 		{
-			currents.put(load.id(), drawing(load, voltages, given));
+			currents[load.id().index()] = drawing(load, voltages, given).value();
 		}
 
 		for (int index = 0; index < circuit.transformers().size(); index++)
 		{
 			Transformer transformer = circuit.transformers().get(index);
 			double primary = solved[unknownOfTransformer[index]];
-			currents.put(transformer.primary().id(), new Amperes(primary));
-			currents.put(transformer.secondary().id(), new Amperes(-delivered(transformer) * primary));
+			currents[transformer.primary().id().index()] = primary;
+			currents[transformer.secondary().id().index()] = -delivered(transformer) * primary;
 		}
 
 		readJoints(currents);
@@ -269,11 +270,11 @@ final class NodalAnalysis
 
 	/**
 	 * The current a device is drawing. One drawing by its own resistance answers the solved
-	 * potentials exactly, since that resistance is what the solve was written around; any other draws
-	 * what it was written in as, so that the current arriving at every node is the current the solve
+	 * potentials exactly, since that resistance is what the solution was written around; any other draws
+	 * what it was written in as, so that the current arriving at every node is the current the solution
 	 * balanced.
 	 */
-	private Amperes drawing(Load load, Map<NodeId, Volts> voltages, Map<NodeId, Volts> given)
+	private Amperes drawing(Load load, double[] voltages, double[] given)
 	{
 		Volts terminals = potential(given, load.from(), load.to());
 		if (load.isStalledAt(terminals))
@@ -287,13 +288,14 @@ final class NodalAnalysis
 	}
 
 	/**
-	 * Works out what each bolted joint is carrying, which the solve itself does not answer because
+	 * Works out what each bolted joint is carrying, which the solution itself does not answer because
 	 * the nodes a joint holds together were one point while it ran. Whatever a node takes from the
 	 * rest of the circuit has to arrive along the joints at it, so the joints are read from the
 	 * outside inwards. A joint closing a loop of them carries nothing: any current going round and
-	 * round would satisfy the circuit equally, so none of them is the answer.
+	 * round would satisfy the circuit equally, so none of them is the answer, and a joint the sweep
+	 * never reaches keeps the nothing every reading starts at.
 	 */
-	private void readJoints(Map<ElementId, Amperes> currents)
+	private void readJoints(double[] currents)
 	{
 		if (joints.isEmpty())
 		{
@@ -303,24 +305,16 @@ final class NodalAnalysis
 		double[] arriving = new double[point.length];
 		for (Element element : circuit.elements())
 		{
-			Amperes carried = currents.get(element.id());
-			if (carried != null)
-			{
-				arriving[element.to().index()] += carried.value();
-				arriving[element.from().index()] -= carried.value();
-			}
-		}
-
-		for (Conductor joint : joints)
-		{
-			currents.put(joint.id(), Amperes.ZERO);
+			double carried = currents[element.id().index()];
+			arriving[element.to().index()] += carried;
+			arriving[element.from().index()] -= carried;
 		}
 
 		for (HangingJoint hanging : sweep)
 		{
 			double carried = arriving[hanging.node().index()];
 			arriving[hanging.anchor().index()] += carried;
-			currents.put(hanging.joint().id(), new Amperes(hanging.outwards() ? carried : -carried));
+			currents[hanging.joint().id().index()] = hanging.outwards() ? carried : -carried;
 		}
 	}
 
@@ -469,10 +463,10 @@ final class NodalAnalysis
 		return transformer.loss().remainder() / transformer.ratio().ratio();
 	}
 
-	/** The potential between two nodes of a set of readings, which is nothing where a node has none. */
-	private static Volts potential(Map<NodeId, Volts> voltages, NodeId from, NodeId to)
+	/** The potential between two nodes of a set of potentials held by node index. */
+	private static Volts potential(double[] voltages, NodeId from, NodeId to)
 	{
-		return voltages.getOrDefault(from, Volts.ZERO).minus(voltages.getOrDefault(to, Volts.ZERO));
+		return new Volts(voltages[from.index()] - voltages[to.index()]);
 	}
 
 	/**

@@ -2,7 +2,6 @@ package io.gifsync.septemcraft.api;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Assembles a circuit one node and one element at a time, which is how anything walking a world of
@@ -19,18 +18,11 @@ public final class CircuitBuilder
 
 	private final List<Transformer> transformers = new ArrayList<>();
 
-	/** The first node minted, which every potential in the circuit is measured from. */
-	private Optional<NodeId> reference = Optional.empty();
-
 	/** A node belonging to the circuit being built, which nothing yet joins. */
 	public NodeId node()
 	{
 		NodeId node = new NodeId(nodes.size());
 		nodes.add(node);
-		if (reference.isEmpty())
-		{
-			reference = Optional.of(node);
-		}
 
 		return node;
 	}
@@ -85,10 +77,12 @@ public final class CircuitBuilder
 	/** The circuit as assembled so far. */
 	public Circuit build()
 	{
-		NodeId measuredFrom = reference.orElseThrow(() -> new IllegalStateException(
-			"A circuit is measured from its first node, and none has been minted"));
+		if (nodes.isEmpty())
+		{
+			throw new IllegalStateException("A circuit is measured from its first node, and none has been minted");
+		}
 
-		return new AssembledCircuit(nodes, measuredFrom, elements, ofKind(Conductor.class), ofKind(Source.class),
+		return new AssembledCircuit(nodes, nodes.get(0), elements, ofKind(Conductor.class), ofKind(Source.class),
 			ofKind(Load.class), transformers);
 	}
 

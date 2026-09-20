@@ -63,7 +63,7 @@ class PackageStructureTest
 
 	@ArchTest
 	static final ArchRule every_package_declares_its_kind = all(PACKAGES)
-		.should(new ArchCondition<JavaPackage>("declare a kind")
+		.should(new ArchCondition<>("declare a kind")
 		{
 			@Override
 			public void check(JavaPackage item, ConditionEvents events)
@@ -78,7 +78,7 @@ class PackageStructureTest
 
 	@ArchTest
 	static final ArchRule a_feature_depends_on_no_other_feature = classes()
-		.should(new ArchCondition<JavaClass>("depend on no other feature")
+		.should(new ArchCondition<>("depend on no other feature")
 		{
 			@Override
 			public void check(JavaClass item, ConditionEvents events)
@@ -102,7 +102,7 @@ class PackageStructureTest
 
 	@ArchTest
 	static final ArchRule a_shared_package_depends_only_on_shared_packages = classes()
-		.should(new ArchCondition<JavaClass>("depend on neither a feature nor a composition root")
+		.should(new ArchCondition<>("depend on neither a feature nor a composition root")
 		{
 			@Override
 			public void check(JavaClass item, ConditionEvents events)
@@ -125,7 +125,7 @@ class PackageStructureTest
 
 	@ArchTest
 	static final ArchRule a_feature_or_a_composition_root_is_imported_only_by_its_nearest_root = classes()
-		.should(new ArchCondition<JavaClass>("reach a feature or a composition root only from its nearest root")
+		.should(new ArchCondition<>("reach a feature or a composition root only from its nearest root")
 		{
 			@Override
 			public void check(JavaClass item, ConditionEvents events)
@@ -151,7 +151,7 @@ class PackageStructureTest
 
 	@ArchTest
 	static final ArchRule a_feature_exposes_one_public_type = all(PACKAGES)
-		.should(new ArchCondition<JavaPackage>("expose no more than one public type at its root")
+		.should(new ArchCondition<>("expose no more than one public type at its root")
 		{
 			@Override
 			public void check(JavaPackage item, ConditionEvents events)
@@ -179,7 +179,7 @@ class PackageStructureTest
 
 	@ArchTest
 	static final ArchRule a_package_inside_a_feature_is_part_of_it = all(PACKAGES)
-		.should(new ArchCondition<JavaPackage>("declare itself a feature when a feature encloses it")
+		.should(new ArchCondition<>("declare itself a feature when a feature encloses it")
 		{
 			@Override
 			public void check(JavaPackage item, ConditionEvents events)
@@ -199,7 +199,7 @@ class PackageStructureTest
 
 	@ArchTest
 	static final ArchRule a_feature_is_reached_only_through_its_one_type = classes()
-		.should(new ArchCondition<JavaClass>("reach a feature only through its one public type")
+		.should(new ArchCondition<>("reach a feature only through its one public type")
 		{
 			@Override
 			public void check(JavaClass item, ConditionEvents events)
@@ -226,7 +226,7 @@ class PackageStructureTest
 
 	@ArchTest
 	static final ArchRule no_type_is_declared_inside_another = classes()
-		.should(new ArchCondition<JavaClass>("be declared in a file of their own")
+		.should(new ArchCondition<>("be declared in a file of their own")
 		{
 			@Override
 			public void check(JavaClass item, ConditionEvents events)

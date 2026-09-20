@@ -346,15 +346,15 @@ final class Fixtures
 		return new Island(builder.build(), adrift, alsoAdrift, stranded);
 	}
 
-	/** A machine with a path back to itself through the resistance named, which may be none at all. */
-	static ShortCircuit shortedThrough(Ohms windings, Ohms bolt)
+	/** A machine with a path back to itself that resists nothing, behind the windings named. */
+	static ShortCircuit shortedThrough(Ohms windings)
 	{
 		CircuitBuilder builder = new CircuitBuilder();
 		NodeId reference = builder.node();
 		NodeId live = builder.node();
 
 		Source source = builder.source(reference, live, NOMINAL, windings);
-		Conductor path = builder.conductor(live, reference, bolt);
+		Conductor path = builder.conductor(live, reference, Ohms.ZERO);
 
 		return new ShortCircuit(builder.build(), source, path);
 	}

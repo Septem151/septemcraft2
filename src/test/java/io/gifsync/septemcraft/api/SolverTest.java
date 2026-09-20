@@ -233,7 +233,7 @@ class SolverTest
 	@Test
 	void aMachineBoltedBackToItselfIsAFault()
 	{
-		Fixtures.ShortCircuit shorted = Fixtures.shortedThrough(Ohms.ZERO, Ohms.ZERO);
+		Fixtures.ShortCircuit shorted = Fixtures.shortedThrough(Ohms.ZERO);
 
 		Solution solution = new CircuitSolver().solve(shorted.circuit());
 
@@ -249,7 +249,7 @@ class SolverTest
 	@Test
 	void aMachineShortedBehindItsOwnWindingsIsLargeButNotAFault()
 	{
-		Fixtures.ShortCircuit shorted = Fixtures.shortedThrough(Fixtures.WINDING, Ohms.ZERO);
+		Fixtures.ShortCircuit shorted = Fixtures.shortedThrough(Fixtures.WINDING);
 
 		Solution solution = new CircuitSolver().solve(shorted.circuit());
 

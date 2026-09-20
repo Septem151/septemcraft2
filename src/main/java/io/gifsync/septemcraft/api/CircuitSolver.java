@@ -1,6 +1,5 @@
 package io.gifsync.septemcraft.api;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -47,38 +46,38 @@ public record CircuitSolver(int maxNodes)
 		NodalAnalysis analysis = new NodalAnalysis(circuit);
 		if (analysis.points() > maxNodes)
 		{
-			return nothing(SolutionStatus.TOO_LARGE);
+			return CircuitReadings.nothing(SolutionStatus.TOO_LARGE);
 		}
 
 		if (circuit.sources().stream().noneMatch(Source::isRunning))
 		{
-			return nothing(SolutionStatus.DE_ENERGISED);
+			return CircuitReadings.nothing(SolutionStatus.DE_ENERGISED);
 		}
 
 		if (isShorted(circuit, analysis))
 		{
-			return nothing(SolutionStatus.SHORTED);
+			return CircuitReadings.nothing(SolutionStatus.SHORTED);
 		}
 
-		Map<NodeId, Volts> guesses = new HashMap<>(seed);
+		double[] guesses = startingFrom(circuit, seed);
 		Optional<CircuitReadings> first = analysis.readingsAt(guesses);
 		if (first.isEmpty())
 		{
-			return nothing(SolutionStatus.SINGULAR);
+			return CircuitReadings.nothing(SolutionStatus.SINGULAR);
 		}
 
 		CircuitReadings held = first.get();
 		for (int pass = 1; pass <= ElectricalConstants.MAX_ITERATIONS; pass++)
 		{
-			step(guesses, held, circuit);
+			step(guesses, held);
 			Optional<CircuitReadings> taken = analysis.readingsAt(guesses);
 			if (taken.isEmpty())
 			{
-				return nothing(SolutionStatus.SINGULAR);
+				return CircuitReadings.nothing(SolutionStatus.SINGULAR);
 			}
 
 			CircuitReadings fresh = taken.get();
-			if (hasSettled(circuit, held, fresh))
+			if (hasSettled(held, fresh))
 			{
 				return fresh;
 			}
@@ -86,7 +85,27 @@ public record CircuitSolver(int maxNodes)
 			held = fresh;
 		}
 
-		return new CircuitReadings(SolutionStatus.UNSETTLED, held.voltages(), held.currents());
+		return held.unsettled();
+	}
+
+	/**
+	 * The potential each node starts the first pass at, taken from the seed and nothing where the
+	 * seed names none. A seed naming a node of some other circuit names no node of this one, and is
+	 * left where it lies.
+	 */
+	private static double[] startingFrom(Circuit circuit, Map<NodeId, Volts> seed)
+	{
+		double[] guesses = new double[circuit.nodes().size()];
+		for (Map.Entry<NodeId, Volts> given : seed.entrySet())
+		{
+			int node = given.getKey().index();
+			if (node >= 0 && node < guesses.length)
+			{
+				guesses[node] = given.getValue().value();
+			}
+		}
+
+		return guesses;
 	}
 
 	/**
@@ -113,34 +132,25 @@ public record CircuitSolver(int maxNodes)
 	 * read. Stepping all the way lets a device that answers its own supply overshoot and answer the
 	 * overshoot; stepping part of the way is what has it settle instead.
 	 */
-	private static void step(Map<NodeId, Volts> guesses, CircuitReadings taken, Circuit circuit)
+	private static void step(double[] guesses, CircuitReadings taken)
 	{
-		for (NodeId node : circuit.nodes())
+		for (int node = 0; node < guesses.length; node++)
 		{
-			double guessed = guesses.getOrDefault(node, Volts.ZERO).value();
-			double read = taken.voltageAt(node).value();
-			guesses.put(node, new Volts(guessed + ElectricalConstants.RELAXATION_FACTOR * (read - guessed)));
+			guesses[node] += ElectricalConstants.RELAXATION_FACTOR * (taken.voltage(node) - guesses[node]);
 		}
 	}
 
 	/** Whether two passes agree closely enough everywhere that the circuit counts as settled. */
-	private static boolean hasSettled(Circuit circuit, CircuitReadings held, CircuitReadings fresh)
+	private static boolean hasSettled(CircuitReadings held, CircuitReadings fresh)
 	{
-		for (NodeId node : circuit.nodes())
+		for (int node = 0; node < fresh.nodes(); node++)
 		{
-			double moved = Math.abs(fresh.voltageAt(node).value() - held.voltageAt(node).value());
-			if (moved >= ElectricalConstants.CONVERGENCE_TOLERANCE)
+			if (Math.abs(fresh.voltage(node) - held.voltage(node)) >= ElectricalConstants.CONVERGENCE_TOLERANCE)
 			{
 				return false;
 			}
 		}
 
 		return true;
-	}
-
-	/** A circuit reading as nothing anywhere, which is what one that was not solved reads as. */
-	private static Solution nothing(SolutionStatus status)
-	{
-		return new CircuitReadings(status, Map.of(), Map.of());
 	}
 }

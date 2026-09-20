@@ -9,11 +9,13 @@ import io.gifsync.septemcraft.processing.IngredientSource;
 import io.gifsync.septemcraft.processing.ProcessIngredient;
 import io.gifsync.septemcraft.processing.SequencedAssembly;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.ItemTags;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.Recipe;
@@ -21,6 +23,7 @@ import net.minecraft.world.item.crafting.RecipeManager;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.tags.ITagManager;
 
 /**
  * Checks that what the feature declares is what a loaded world actually holds. The recipes are
@@ -157,7 +160,10 @@ public class MaterialRecipesTest
 	{
 		if (declared.source() == IngredientSource.TAG)
 		{
-			return ForgeRegistries.ITEMS.tags().getTag(ItemTags.create(declared.name())).stream()
+			ITagManager<Item> tags = Optional.ofNullable(ForgeRegistries.ITEMS.tags())
+				.orElseThrow(() -> new IllegalStateException("The item registry holds no tags"));
+
+			return tags.getTag(ItemTags.create(declared.name())).stream()
 				.map(item -> String.valueOf(ForgeRegistries.ITEMS.getKey(item)))
 				.sorted()
 				.toList();
