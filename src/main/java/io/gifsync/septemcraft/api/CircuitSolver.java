@@ -8,46 +8,28 @@ import java.util.Optional;
  * Solves a circuit for the potential at every node and the current through every element. A circuit
  * holding loads that answer their potential has no closed answer, so the solver works towards one;
  * where such a circuit has more than one answer, the stable one is the one it must find.
+ *
+ * @param maxNodes the most electrical points this solver will take on, beyond which a circuit reads
+ *            as too large. Solving costs the cube of this, so it is what keeps a solve inside a
+ *            tick, and a smaller one is a smaller ceiling rather than a slower solver. Blocks
+ *            bolted to blocks collapse into one point before this is counted, so a run far longer
+ *            than this still solves.
  */
-// TODO: Convert CircuitSolver to a record
-public final class CircuitSolver
+public record CircuitSolver(int maxNodes)
 {
-	private final int maxNodes;
-
-	/** A solver sized for the largest circuit the mod is expected to hand it. */
-	public CircuitSolver()
-	{
-		this(defaultMaxNodes());
-	}
-
-	/**
-	 * A solver sized for the number of nodes named. Solving costs the cube of this, so it is what
-	 * keeps a solve inside a tick, and a smaller one is a smaller ceiling rather than a slower
-	 * solver.
-	 */
-	public CircuitSolver(int maxNodes)
+	/** Checks that a solver is sized for a circuit at all. */
+	public CircuitSolver
 	{
 		if (maxNodes < 1)
 		{
 			throw new IllegalArgumentException("A solver takes on at least one point, not " + maxNodes);
 		}
-
-		this.maxNodes = maxNodes;
 	}
 
-	/**
-	 * The most electrical points this solver will take on, beyond which a circuit reads as too
-	 * large. Blocks bolted to blocks collapse into one point before this is counted, so a run far
-	 * longer than this still solves.
-	 */
-	public int maxNodes()
+	/** A solver sized for the largest circuit the mod is expected to hand it. */
+	public CircuitSolver()
 	{
-		return maxNodes;
-	}
-
-	private static int defaultMaxNodes()
-	{
-		return ElectricalConstants.MAX_NODES_PER_CIRCUIT;
+		this(ElectricalConstants.MAX_NODES_PER_CIRCUIT);
 	}
 
 	/** Solves a circuit from whatever the solver's own starting point is. */

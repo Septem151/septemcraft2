@@ -28,6 +28,29 @@ final class LinearSystem
 		this.constants = new double[size];
 	}
 
+	/** A system carrying everything another already has, which solving this one leaves untouched. */
+	private LinearSystem(LinearSystem other)
+	{
+		this.size = other.size;
+		this.coefficients = new double[other.size][];
+		for (int row = 0; row < other.size; row++)
+		{
+			this.coefficients[row] = other.coefficients[row].clone();
+		}
+
+		this.constants = other.constants.clone();
+	}
+
+	/**
+	 * A system holding what this one holds, to be stamped further and solved on its own. Everything
+	 * a circuit writes down that does not change between passes is written once and copied here,
+	 * rather than written again every pass.
+	 */
+	LinearSystem copy()
+	{
+		return new LinearSystem(this);
+	}
+
 	/** Adds to the coefficient an unknown carries in an equation. */
 	void add(int equation, int unknown, double value)
 	{
@@ -44,16 +67,14 @@ final class LinearSystem
 	 * The value of every unknown, or nothing when the system does not determine them - a pivot too
 	 * small to divide by, or an answer that is not a number, which is a circuit that does not
 	 * determine its own answer rather than arithmetic wearing out.
+	 *
+	 * <p>Eliminating rewrites the equations in place, so a system answers this once. Ask a
+	 * {@link #copy()} for a second answer.
 	 */
 	Optional<double[]> solution()
 	{
-		double[][] rows = new double[size][];
-		for (int row = 0; row < size; row++)
-		{
-			rows[row] = coefficients[row].clone();
-		}
-
-		double[] values = constants.clone();
+		double[][] rows = coefficients;
+		double[] values = constants;
 		for (int column = 0; column < size; column++)
 		{
 			int pivot = largestBelow(rows, column);

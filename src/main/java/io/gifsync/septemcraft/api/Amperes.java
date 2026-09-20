@@ -21,13 +21,6 @@ public record Amperes(double value)
 		return new Volts(value * resistance.value());
 	}
 
-	// TODO: Find out why this method is never used, and whether it can be deleted or not.
-	/** The power this current carries at the given potential. */
-	public Watts times(Volts potential)
-	{
-		return new Watts(value * potential.value());
-	}
-
 	/** The power this current burns in a resistance, which it does whichever way it runs. */
 	public Watts dissipatedIn(Ohms resistance)
 	{

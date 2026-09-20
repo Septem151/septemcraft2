@@ -3,6 +3,7 @@ package io.gifsync.septemcraft.api;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -21,11 +22,8 @@ import java.util.Optional;
  */
 final class NodalAnalysis
 {
-	/** What a point measured from rather than solved for carries instead of an unknown. */
-	private static final int MEASURED_FROM = -1;
-
-	/** What a point not yet reached carries, which no point keeps. */
-	private static final int UNREACHED = -2;
+	/** What something the solve does not carry an unknown for holds in place of one. */
+	private static final int NO_UNKNOWN = -1;
 
 	private final Circuit circuit;
 
@@ -44,7 +42,14 @@ final class NodalAnalysis
 	/** Which unknown each transformer's primary current is. */
 	private final int[] unknownOfTransformer;
 
-	private final int unknowns;
+	/**
+	 * Everything about this circuit that does not change between passes, written down once. Each
+	 * pass copies it and writes only what its devices are drawing onto the copy.
+	 */
+	private final LinearSystem invariant;
+
+	/** Every joint that hangs a node, in the order to read them back: outermost first. */
+	private final List<HangingJoint> sweep;
 
 	/** Works out what the points of a circuit are and which unknown each thing about it is. */
 	NodalAnalysis(Circuit circuit)
@@ -55,34 +60,32 @@ final class NodalAnalysis
 		int nodes = circuit.nodes().size();
 		this.point = merged(nodes, joints);
 		this.unknownOfPoint = new int[nodes];
-		Arrays.fill(unknownOfPoint, UNREACHED);
+		Arrays.fill(unknownOfPoint, NO_UNKNOWN);
 
 		int[] part = merged(nodes, circuit.elements());
 		boolean[] measured = new boolean[nodes];
 		int next = 0;
-		for (NodeId node : circuit.nodes())
+		for (int node = 0; node < nodes; node++)
 		{
-			int own = point[node.index()];
-			if (unknownOfPoint[own] != UNREACHED)
+			if (point[node] != node)
 			{
 				continue;
 			}
 
-			if (measured[part[node.index()]])
+			if (measured[part[node]])
 			{
-				unknownOfPoint[own] = next++;
+				unknownOfPoint[node] = next++;
 			}
 			else
 			{
-				unknownOfPoint[own] = MEASURED_FROM;
-				measured[part[node.index()]] = true;
+				measured[part[node]] = true;
 			}
 		}
 
 		this.unknownOfSource = new int[circuit.sources().size()];
 		for (int index = 0; index < unknownOfSource.length; index++)
 		{
-			unknownOfSource[index] = circuit.sources().get(index).internalResistance().isNone() ? next++ : UNREACHED;
+			unknownOfSource[index] = circuit.sources().get(index).internalResistance().isNone() ? next++ : NO_UNKNOWN;
 		}
 
 		this.unknownOfTransformer = new int[circuit.transformers().size()];
@@ -91,7 +94,12 @@ final class NodalAnalysis
 			unknownOfTransformer[index] = next++;
 		}
 
-		this.unknowns = next;
+		this.invariant = new LinearSystem(next);
+		stampConductors(invariant);
+		stampSources(invariant);
+		stampTransformers(invariant);
+
+		this.sweep = span();
 	}
 
 	/** How many electrical points this circuit has, once everything bolted together counts as one. */
@@ -121,11 +129,8 @@ final class NodalAnalysis
 	 */
 	Optional<CircuitReadings> readingsAt(Map<NodeId, Volts> given)
 	{
-		LinearSystem system = new LinearSystem(unknowns);
-		stampConductors(system);
-		stampSources(system);
+		LinearSystem system = invariant.copy();
 		stampLoads(system, given);
-		stampTransformers(system);
 
 		return system.solution().map(solved -> read(solved, given));
 	}
@@ -182,7 +187,7 @@ final class NodalAnalysis
 				continue;
 			}
 
-			if (load.behaviour() == LoadClass.CONSTANT_RESISTANCE)
+			if (load.behaviour().stampsAsResistance())
 			{
 				conductance(system, load.from(), load.to(), 1.0 / load.resistance().value());
 			}
@@ -276,7 +281,7 @@ final class NodalAnalysis
 			return Amperes.ZERO;
 		}
 
-		return load.behaviour() == LoadClass.CONSTANT_RESISTANCE
+		return load.behaviour().stampsAsResistance()
 			? potential(voltages, load.from(), load.to()).over(load.resistance())
 			: load.drawAt(terminals);
 	}
@@ -306,16 +311,40 @@ final class NodalAnalysis
 			}
 		}
 
+		for (Conductor joint : joints)
+		{
+			currents.put(joint.id(), Amperes.ZERO);
+		}
+
+		for (HangingJoint hanging : sweep)
+		{
+			double carried = arriving[hanging.node().index()];
+			arriving[hanging.anchor().index()] += carried;
+			currents.put(hanging.joint().id(), new Amperes(hanging.outwards() ? carried : -carried));
+		}
+	}
+
+	/**
+	 * Walks the joints outwards from every node, giving back each joint that reached a node not
+	 * already reached, in the order those joints are to be read: outermost first. A joint closing a
+	 * loop reaches nothing new this way and so is never read, which is what leaves it carrying
+	 * nothing.
+	 */
+	private List<HangingJoint> span()
+	{
+		List<HangingJoint> hung = new ArrayList<>();
+		if (joints.isEmpty())
+		{
+			return List.copyOf(hung);
+		}
+
 		Map<NodeId, List<Conductor>> jointsAt = new HashMap<>();
 		for (Conductor joint : joints)
 		{
 			jointsAt.computeIfAbsent(joint.from(), node -> new ArrayList<>()).add(joint);
 			jointsAt.computeIfAbsent(joint.to(), node -> new ArrayList<>()).add(joint);
-			currents.put(joint.id(), Amperes.ZERO);
 		}
 
-		List<NodeId> reached = new ArrayList<>();
-		Map<NodeId, Conductor> hangsFrom = new HashMap<>();
 		boolean[] seen = new boolean[point.length];
 		Deque<NodeId> waiting = new ArrayDeque<>();
 		for (NodeId node : circuit.nodes())
@@ -330,34 +359,22 @@ final class NodalAnalysis
 			while (!waiting.isEmpty())
 			{
 				NodeId next = waiting.remove();
-				reached.add(next);
 				for (Conductor joint : jointsAt.getOrDefault(next, List.of()))
 				{
 					NodeId other = joint.from().equals(next) ? joint.to() : joint.from();
 					if (!seen[other.index()])
 					{
 						seen[other.index()] = true;
-						hangsFrom.put(other, joint);
+						hung.add(new HangingJoint(other, joint));
 						waiting.add(other);
 					}
 				}
 			}
 		}
 
-		for (int index = reached.size() - 1; index >= 0; index--)
-		{
-			NodeId node = reached.get(index);
-			Conductor joint = hangsFrom.get(node);
-			if (joint == null)
-			{
-				continue;
-			}
+		Collections.reverse(hung);
 
-			boolean outwards = joint.from().equals(node);
-			double carried = arriving[node.index()];
-			arriving[(outwards ? joint.to() : joint.from()).index()] += carried;
-			currents.put(joint.id(), new Amperes(outwards ? carried : -carried));
-		}
+		return List.copyOf(hung);
 	}
 
 	/** Writes a resistance between two nodes onto the system, which draws from one and pushes into the other. */

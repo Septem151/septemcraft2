@@ -23,5 +23,15 @@ public enum LoadClass
 	 * charge at a set rate. It is also the class no circuit answers in one pass of arithmetic,
 	 * since what it draws depends on the potential the draw itself decides.
 	 */
-	CONSTANT_POWER
+	CONSTANT_POWER;
+
+	/**
+	 * Whether a device of this class is written onto a solve as a resistance, which the solve then
+	 * answers exactly, rather than as the current it was found to be drawing. Only a device drawing
+	 * by its own resistance is the former.
+	 */
+	boolean stampsAsResistance()
+	{
+		return this == CONSTANT_RESISTANCE;
+	}
 }

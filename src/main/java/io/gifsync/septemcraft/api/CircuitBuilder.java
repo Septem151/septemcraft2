@@ -2,6 +2,7 @@ package io.gifsync.septemcraft.api;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Assembles a circuit one node and one element at a time, which is how anything walking a world of
@@ -16,19 +17,20 @@ public final class CircuitBuilder
 
 	private final List<Element> elements = new ArrayList<>();
 
-	private final List<Conductor> conductors = new ArrayList<>();
-
-	private final List<Source> sources = new ArrayList<>();
-
-	private final List<Load> loads = new ArrayList<>();
-
 	private final List<Transformer> transformers = new ArrayList<>();
+
+	/** The first node minted, which every potential in the circuit is measured from. */
+	private Optional<NodeId> reference = Optional.empty();
 
 	/** A node belonging to the circuit being built, which nothing yet joins. */
 	public NodeId node()
 	{
 		NodeId node = new NodeId(nodes.size());
 		nodes.add(node);
+		if (reference.isEmpty())
+		{
+			reference = Optional.of(node);
+		}
 
 		return node;
 	}
@@ -37,7 +39,6 @@ public final class CircuitBuilder
 	public Conductor conductor(NodeId from, NodeId to, Ohms resistance)
 	{
 		Conductor conductor = new Conductor(nextElementId(), mine(from), mine(to), resistance);
-		conductors.add(conductor);
 		elements.add(conductor);
 
 		return conductor;
@@ -47,7 +48,6 @@ public final class CircuitBuilder
 	public Source source(NodeId from, NodeId to, Volts electromotiveForce, Ohms internalResistance)
 	{
 		Source source = new Source(nextElementId(), mine(from), mine(to), electromotiveForce, internalResistance);
-		sources.add(source);
 		elements.add(source);
 
 		return source;
@@ -59,7 +59,6 @@ public final class CircuitBuilder
 	{
 		Load load = new Load(nextElementId(), mine(from), mine(to), behaviour, ratedPower, ratedVoltage,
 			minimumVoltage);
-		loads.add(load);
 		elements.add(load);
 
 		return load;
@@ -86,13 +85,17 @@ public final class CircuitBuilder
 	/** The circuit as assembled so far. */
 	public Circuit build()
 	{
-		if (nodes.isEmpty())
-		{
-			throw new IllegalStateException("A circuit is measured from its first node, and none has been minted");
-		}
+		NodeId measuredFrom = reference.orElseThrow(() -> new IllegalStateException(
+			"A circuit is measured from its first node, and none has been minted"));
 
-		// TODO: Calling `nodes.get(0)` here isn't a good access pattern.
-		return new AssembledCircuit(nodes, nodes.get(0), elements, conductors, sources, loads, transformers);
+		return new AssembledCircuit(nodes, measuredFrom, elements, ofKind(Conductor.class), ofKind(Source.class),
+			ofKind(Load.class), transformers);
+	}
+
+	/** Every element of one kind put in, in the order it was, which is how a circuit reads its own. */
+	private <T extends Element> List<T> ofKind(Class<T> kind)
+	{
+		return elements.stream().filter(kind::isInstance).map(kind::cast).toList();
 	}
 
 	/** What the next element put in is called, which is its position among the elements. */

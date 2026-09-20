@@ -60,8 +60,7 @@ class UnsettledCircuitTest
 	 */
 	private static Circuit feedPastItsCeiling()
 	{
-		double ceiling = NOMINAL.value() * NOMINAL.value() / (4.0 * RATING.value());
-		Ohms arm = new Ohms(LINE_PAST_ITS_CEILING * ceiling / 2.0);
+		Ohms arm = new Ohms(LINE_PAST_ITS_CEILING * Fixtures.answerableCeiling(NOMINAL, RATING).value() / 2.0);
 
 		CircuitBuilder builder = new CircuitBuilder();
 		NodeId reference = builder.node();

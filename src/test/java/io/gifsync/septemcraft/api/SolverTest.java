@@ -254,7 +254,7 @@ class SolverTest
 		Solution solution = new CircuitSolver().solve(shorted.circuit());
 
 		assertEquals(SolutionStatus.SOLVED, solution.status());
-		assertEquals(Fixtures.NOMINAL.value() / Fixtures.WINDING.value(),
+		assertEquals(Fixtures.NOMINAL.over(Fixtures.WINDING).value(),
 			solution.through(shorted.source()).value(), CLOSE);
 		assertEquals(0.0, solution.deliveredBy(shorted.source()).value(), CLOSE);
 	}

@@ -250,16 +250,23 @@ final class Fixtures
 	}
 
 	/**
-	 * How long a run the transmission fixtures use. A device holding its power on a resistive line
-	 * has an answer at all only while the line resists less than the machine's own potential squared
-	 * over four times the device's power; past that there is nothing for a solver to find. The
-	 * length is worked back from that ceiling rather than written down, so that retuning what a
+	 * The most a line may resist and still leave a device holding its power an answer, which is the
+	 * machine's own potential squared over four times that power. Past it the device satisfies the
+	 * circuit at no potential whatever and there is nothing for a solver to find.
+	 */
+	static Ohms answerableCeiling(Volts driving, Watts held)
+	{
+		return new Ohms(driving.value() * driving.value() / (4.0 * held.value()));
+	}
+
+	/**
+	 * How long a run the transmission fixtures use. The length is worked back from
+	 * {@link #answerableCeiling(Volts, Watts)} rather than written down, so that retuning what a
 	 * block of wire resists moves the run rather than quietly leaving the fixture unanswerable.
 	 */
 	private static Blocks feedLength()
 	{
-		double ceiling = NOMINAL.value() * NOMINAL.value() / (4.0 * RATING.value());
-		double wanted = LINE_SHARE_OF_ITS_CEILING * ceiling;
+		double wanted = LINE_SHARE_OF_ITS_CEILING * answerableCeiling(NOMINAL, RATING).value();
 
 		return new Blocks((int) Math.round(wanted / (2.0 * ConductorForm.CATENARY_WIRE.perBlock().value())));
 	}
