@@ -1,14 +1,19 @@
 package io.gifsync.septemcraft.api;
 
 /** A rotational speed, in revolutions per minute. */
-// Every method here throws until the solver is written, which is what the tests beside this
-// package are for. @DoNotCall is not the answer: it would stop those tests compiling.
-// TODO: Remove once implemented.
-@SuppressWarnings("DoNotCallSuggester")
 public record Rpm(double value)
 {
 	/** A shaft at rest. */
 	public static final Rpm ZERO = new Rpm(0.0);
+
+	/** Checks that a speed is a number, which a speed either way round is. */
+	public Rpm
+	{
+		if (!Double.isFinite(value))
+		{
+			throw new IllegalArgumentException("A speed is finite, not " + value);
+		}
+	}
 
 	/**
 	 * The potential a machine turning at this speed drives, which is one volt for every revolution
@@ -16,6 +21,6 @@ public record Rpm(double value)
 	 */
 	public Volts driving()
 	{
-		throw new UnsupportedOperationException("Rpm.driving() is not implemented.");
+		return new Volts(value * ElectricalConstants.VOLTS_PER_RPM);
 	}
 }

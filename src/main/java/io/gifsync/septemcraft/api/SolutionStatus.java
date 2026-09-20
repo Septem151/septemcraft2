@@ -27,6 +27,15 @@ public enum SolutionStatus
 	 */
 	SINGULAR,
 
+	/**
+	 * The circuit was still moving when the solver ran out of passes, so the readings are the last it
+	 * took rather than an answer the circuit settled on. A device drawing more than its line can
+	 * deliver reads as this: it collapses the line, gives up, recovers, and collapses it again. Every
+	 * reading still balances and every watt is still accounted for - what is missing is that they are
+	 * final.
+	 */
+	UNSETTLED,
+
 	/** The circuit holds more nodes than the solver is sized for, so every reading is zero. */
 	TOO_LARGE
 }

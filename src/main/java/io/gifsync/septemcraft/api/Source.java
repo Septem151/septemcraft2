@@ -16,4 +16,24 @@ package io.gifsync.septemcraft.api;
 public record Source(ElementId id, NodeId from, NodeId to, Volts electromotiveForce,
 	Ohms internalResistance) implements Element
 {
+	/** Checks that a machine is across two nodes and that its own windings take something or nothing. */
+	public Source
+	{
+		if (from.equals(to))
+		{
+			throw new IllegalArgumentException("A machine is across two nodes, not " + from + " and itself");
+		}
+
+		if (internalResistance.value() < 0.0)
+		{
+			throw new IllegalArgumentException(
+				"A machine's windings resist something or nothing, not " + internalResistance);
+		}
+	}
+
+	/** Whether this machine is driving at all, which one holding no potential is not. */
+	boolean isRunning()
+	{
+		return electromotiveForce.value() != 0.0;
+	}
 }

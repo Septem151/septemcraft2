@@ -6,4 +6,12 @@ package io.gifsync.septemcraft.api;
  */
 public record Transformer(Winding primary, Winding secondary, TurnsRatio ratio, LossFraction loss)
 {
+	/** Checks that a transformer couples two windings rather than one winding to itself. */
+	public Transformer
+	{
+		if (primary.id().equals(secondary.id()))
+		{
+			throw new IllegalArgumentException("A transformer couples two windings, not " + primary + " to itself");
+		}
+	}
 }

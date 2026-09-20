@@ -1,6 +1,7 @@
 # Design Decisions - Electrification Module
 
-Status: **ideation**, with the materials chain built. Everything else is unwritten.
+Status: **ideation**, with the materials chain and the circuit solver built. Everything else is
+unwritten.
 Last updated: 2026-09-19
 
 This file records decisions that are **settled**. Anything not here is either in
@@ -90,15 +91,15 @@ Create rotation  →  generator  →  electrical grid  →  battery  →  FE  �
 
 **RPM → volts, total SU → watts, and current is what the circuit solves for.**
 
-| Create quantity            | Electrical      | Status                       |
-|----------------------------|-----------------|------------------------------|
-| Shaft speed (RPM)          | **Voltage**     | primary                      |
-| Total network stress (su)  | **Watts**       | primary                      |
-| Stress impact (su/RPM)     | **Current**     | solved, per machine, per tick |
+| Create quantity           | Electrical  | Status                        |
+|---------------------------|-------------|-------------------------------|
+| Shaft speed (RPM)         | **Voltage** | primary                       |
+| Total network stress (su) | **Watts**   | primary                       |
+| Stress impact (su/RPM)    | **Current** | solved, per machine, per tick |
 
 "SU" here is the **total stress** figure: Create's `impact × RPM` product, the number
-the goggles show against capacity. At one volt per RPM and one watt per stress unit,
-**one ampere is one su/RPM exactly**, and one ohm is one RPM per su/RPM.
+the goggles show against capacity. At one volt per RPM and one watt per stress unit, **one ampere is one su/RPM
+exactly**, and one ohm is one RPM per su/RPM.
 
 **Current is solved for, not declared.** Every energised circuit is solved as a circuit -
 sources, resistances and loads together - and a machine's current is the answer that solve
@@ -175,8 +176,8 @@ Three distinct forms, each with a job:
 **Bare or insulated is a property of the form, and it is about contact, not capacity.**
 Catenary wire is bare and kept out of reach on poles. Busbars are bare, which is why they
 belong in a plant room rather than a corridor. Surface wiring is jacketed, because it runs
-where people walk past it. See *Shock* for what a bare conductor costs to touch, and
-*Failure model* for why a jacket is not what lets a conductor carry a voltage.
+where people walk past it. See *Shock* for what a bare conductor costs to touch, and *Failure model* for why a jacket is
+not what lets a conductor carry a voltage.
 
 ## 9. Multiblocks
 
@@ -186,8 +187,8 @@ A machine is an arrangement of real blocks each doing a real job, working becaus
 parts are adjacent and correctly wired.
 
 **Parts are blocks; consumables and fittings are contents.** A block that needs filling
-is filled by interacting with it, not by placing something next to it. Coils and oil go
-*into* a transformer block rather than beside it, and what a block holds is part of
+is filled by interacting with it, not by placing something next to it. Coils and oil go *into* a transformer block
+rather than beside it, and what a block holds is part of
 what it is - a coil of six windings is a different device from the same block with two.
 
 ## 10. Materials
@@ -204,7 +205,7 @@ what it is - a coil of six windings is a different device from the same block wi
   segment carries one. The chain is settled end to end:
 
   | Step  | Machine                   | In                             | Out                                  |
-  |-------|---------------------------|--------------------------------|--------------------------------------|
+    |-------|---------------------------|----------------------------------|------------------------------------|
   | Crush | Crushing wheels           | 1 sky stone block              | 1 sky stone dust, + the block at 25% |
   | Alloy | Basin over a Blaze Burner | 1 sky stone dust + 3 iron ingots | 2 magnetic alloy ingots            |
   | Press | Mechanical press          | 1 magnetic alloy ingot         | 1 magnet                             |
@@ -233,8 +234,8 @@ what it is - a coil of six windings is a different device from the same block wi
   is vulcanized into sheet, which wraps wire for interior runs. The jacket is touch
   protection per *Shock*; it has no bearing on the voltage a conductor can carry.
 
-- **Coolant: oil.** Oil fills transformer coils and carries heat out of them per
-  *Transformers*. Where oil comes from is open.
+- **Coolant: oil.** Oil fills transformer coils and carries heat out of them per *Transformers*. Where oil comes from is
+  open.
 
 **Design emphasis:** *energy production requires resource gathering.* Generators
 are built from copper windings and magnets, and the cost of building them is a central
@@ -275,11 +276,11 @@ the top block.
 
 **A bushing carries voltage class**, being the insulator that holds a conductor off the
 transformer, per *Failure model*. Re-classing a transformer is replacing bushings, as
-stepping a line up is walking it replacing insulators, and **a transformer's class is that
+stepping up a line is walking it replacing insulators, and **a transformer's class is that
 of its weakest bushing** - the same rule a span has. A taller porcelain stack on the high
 side is readable from the ground.
 
-**Primary and secondary are symmetric.** Whichever pair of bushings is fed is the input;
+**Primary and secondary are symmetric.** Whichever pair of bushings is fed is treated as the input;
 step-up and step-down are the same hardware wired the other way round.
 
 ### The two knobs
@@ -291,8 +292,8 @@ is the two ratings against each other. So a transformer is read off a nameplate 
 machines - `32 V ⇄ 64 V` and `128 V ⇄ 256 V` are both 1:2, and neither can do the other's
 job.
 
-**A coil's winding rating is a ceiling, not a floor** - the inverse of the device rating in
-*Electrical quantities*, because a coil is not a load. Fed under its rating a transformer
+**A coil's winding rating is a ceiling, not a floor** - the inverse of the device rating in *Electrical quantities*,
+because a coil is not a load. Fed under its rating a transformer
 works and the output scales down with the ratio. Fed over it the core saturates:
 magnetizing current climbs steeply and the coil heats. That is current damage, so it runs
 the thermal chain of *Failure model* rather than the dielectric wall.
@@ -309,8 +310,8 @@ count is all that is left:
 ```
 
 A transformer's wattage is therefore its size and nothing else. Winding it for high voltage
-buys volts and spends amps, winding it low does the reverse, and the watts do not move.
-**Windings place a transformer on the voltage scale; blocks decide how much power it
+buys volts and spends amps, winding it low does the reverse, and the watts do not move. **Windings place a transformer
+on the voltage scale; blocks decide how much power it
 moves.**
 
 **High voltage is consequently physically large.** A high-class coil needs many windings,
@@ -321,11 +322,11 @@ legible from its silhouette.
 
 Three, separated by how many coils they carry and how the line meets them:
 
-| | Coils | The line | Produces |
-|---|---|---|---|
-| **Power transformer** | two | terminates into the primary | power, at a new voltage |
-| **Voltage transformer** | two | continues past; a branch taps it | a proportional voltage - a reading |
-| **Current transformer** | one | passes through the core | a proportional current - a reading |
+|                         | Coils | The line                         | Produces                           |
+|-------------------------|-------|----------------------------------|------------------------------------|
+| **Power transformer**   | two   | terminates into the primary      | power, at a new voltage            |
+| **Voltage transformer** | two   | continues past; a branch taps it | a proportional voltage - a reading |
+| **Current transformer** | one   | passes through the core          | a proportional current - a reading |
 
 **A power transformer and a voltage transformer are the same hardware**, and the wiring is
 the entire difference. A power transformer's primary is in series: the circuit ends at its
@@ -396,8 +397,8 @@ In scope:
 
 Out of scope: heating and electro-processing devices.
 
-**Instruments read a tap, they do not touch the line.** The instrument transformers of
-*Transformers* are the measurement primitive: one tap on a conductor, read over control
+**Instruments read a tap, they do not touch the line.** The instrument transformers of *Transformers* are the
+measurement primitive: one tap on a conductor, read over control
 wiring at low voltage by anything that wants the number. A relay, a meter, a gauge and a
 redstone converter on the same tap all see the same reading, and the tap is placed once.
 
@@ -427,18 +428,18 @@ How a DC circuit is measured is open, instrument transformers being AC-only.
 **Nothing fails because of power.** Damage is always caused by current or by voltage,
 and those two fail in different shapes.
 
-| Cause       | Physically        | Shape of failure                          | Protection                        |
-|-------------|-------------------|-------------------------------------------|-----------------------------------|
-| **Current** | heat              | cumulative, builds and drains             | breakers, sized in amps           |
-| **Voltage** | dielectric stress | faster the further over, never cumulative | arresters, and breakers  |
-| **Power**   | the work budget   | no damage - the network stalls            | generation capacity               |
+| Cause       | Physically        | Shape of failure                          | Protection              |
+|-------------|-------------------|-------------------------------------------|-------------------------|
+| **Current** | heat              | cumulative, builds and drains             | breakers, sized in amps |
+| **Voltage** | dielectric stress | faster the further over, never cumulative | arresters, and breakers |
+| **Power**   | the work budget   | no damage - the network stalls            | generation capacity     |
 
 Current damage is earned slowly and can be caught while it is happening. Voltage damage
 is much faster and at the extreme leaves no time at all, so it is met by clamping the
 voltage rather than by opening the circuit. Both are covered under *Protection*.
 
-Power is not a damage cause at all. Watts and total SU being one currency per
-*Electrical quantities*, demand beyond what the generators supply is Create's own stress
+Power is not a damage cause at all. Watts and total SU being one currency per *Electrical quantities*, demand beyond
+what the generators supply is Create's own stress
 overload - the rotational network stalls and everything on it stops together. Nothing is
 harmed, and the answer is more generation.
 
@@ -450,11 +451,11 @@ while current is over ampacity and drains while it is not. The rate rises with h
 over the rating the current is, so a larger overload fails sooner and one curve sets
 every threshold.
 
-| State       | Condition                                    | Effect                                          |
-|-------------|----------------------------------------------|-------------------------------------------------|
-| **Hot**     | over ampacity                                | visible, audible, readable by sensors; no damage |
-| **Trip**    | heat reaching the limit, protection present  | the breaker opens; nothing is damaged            |
-| **Burnout** | heat reaching the limit, unprotected         | the component is destroyed                       |
+| State       | Condition                                   | Effect                                           |
+|-------------|---------------------------------------------|--------------------------------------------------|
+| **Hot**     | over ampacity                               | visible, audible, readable by sensors; no damage |
+| **Trip**    | heat reaching the limit, protection present | the breaker opens; nothing is damaged            |
+| **Burnout** | heat reaching the limit, unprotected        | the component is destroyed                       |
 
 Under ampacity nothing heats and nothing is at risk; transmission loss still scales with
 current per *Transmission range*.
@@ -489,7 +490,7 @@ crafting - and that is legible from the ground: you can read a line's class off 
 
 **Over-voltage on a span is a flashover.** The arc tracks across the insulator to the
 pole. The insulator shatters and the span it held drops, because nothing is carrying it
-any more; the conductor itself is undamaged. That inverts the over-current case, where the
+anymore; the conductor itself is undamaged. That inverts the over-current case, where the
 wire snaps and the poles and insulators survive, so the two failures stay distinguishable
 on sight. A flashover is a conductor-to-ground fault, so it is also a short, and its arc
 is the one described in *Arcs*.
@@ -498,8 +499,8 @@ is the one described in *Arcs*.
 length and replacing every insulator on it. Miss one, and that pole is where the line
 fails.
 
-**The one place over-voltage does current damage is a saturating coil.** Per
-*Transformers* a coil fed over its winding rating draws magnetizing current rather than
+**The one place over-voltage does current damage is a saturating coil.** Per *Transformers* a coil fed over its winding
+rating draws magnetizing current rather than
 breaking down, so it runs the thermal chain above and not this wall. Its bushings still
 carry its class, and flashing one of those over is the ordinary dielectric case.
 
@@ -541,7 +542,7 @@ is one relay for each damage cause:
 
 - **Over-current relay.** Trips before heat reaches the limit, so a fault stops at the
   trip state instead of reaching burnout. Sized in amps, read from a current transformer.
-- **Over-voltage relay.** Trips on line voltage above the circuit's class, read from a
+- **Over-voltage relay.** Trips on a line voltage above the circuit's class, read from a
   voltage transformer.
 
 **Surge arresters clamp instead of switching.** Above its rating an arrester conducts the
@@ -552,9 +553,9 @@ took the hit.
 
 **Over-voltage splits by whether something is still pushing.**
 
-| | Example | Cleared by |
-|---|---|---|
-| **Transient** | a lightning strike | the arrester alone - the surge passes, and nothing needs to open |
+|               | Example                                 | Cleared by                                                         |
+|---------------|-----------------------------------------|--------------------------------------------------------------------|
+| **Transient** | a lightning strike                      | the arrester alone - the surge passes, and nothing needs to open   |
 | **Sustained** | a generator geared into the wrong class | the arrester holding the line down while a relay trips the breaker |
 
 A breaker is mechanical and takes a moment to open, which a gross over-voltage does not
@@ -564,6 +565,35 @@ still live. Together they clear it with nothing expensive lost.
 **Lightning strikes the grid.** A strike lands on an arrester where one is present and
 destroys it. What a strike does to an unprotected line, and whether strikes are drawn to
 tall poles, is open.
+
+### What a solve reports
+
+A solve answers with readings and with an outcome, and the outcome is a fact about the circuit rather
+than about the arithmetic.
+
+| Outcome          | What was built                                                                                                         | What answers it                                                                           |
+|------------------|------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
+| **Solved**       | a circuit that determines its own answer                                                                               | nothing                                                                                   |
+| **De-energised** | nothing on it is turning                                                                                               | turn something                                                                            |
+| **Shorted**      | a machine with no winding resistance and a path resisting nothing from one of its terminals back to the other          | it is the dead short of *Current - the thermal chain*, and the fault is where the bolt is |
+| **Singular**     | a circuit that does not determine its own answer - two machines that sag not at all, wired in parallel and disagreeing | winding resistance, which every real machine has                                          |
+| **Unsettled**    | a device drawing more than its line can deliver: it collapses the line, gives up, recovers, and collapses it again     | a shorter run, a better conductor, or stepping the line up                                |
+| **Too large**    | more electrical points than the solver is sized for                                                                    | fewer points, though blocks bolted to blocks already count as one                         |
+
+**A circuit with no answer reads as nothing rather than as nonsense.** Every reading is answerable
+whatever became of the solve, so an instrument on a faulted grid shows zero rather than a figure that
+cannot be shown or reasoned with.
+
+**An unsettled circuit is the exception, and holds its last readings.** They balance - current
+arrives and leaves at every point, and every watt is accounted for - so the only thing missing is
+that they are final. Zeroing them instead would unload the generators, let Create spin them back up,
+and collapse the line again on the next tick, which turns a device sized badly for its line into a
+world that flickers.
+
+**A potential is measured from the part of the circuit it belongs to.** A transformer's secondary
+shares no metal with its primary, so comparing a potential in one against a potential in the other
+means nothing however the two numbers fall. What an instrument reads is a potential across
+something, and that is always within one part.
 
 ## 16. Shock
 
@@ -618,13 +648,13 @@ tapping into the middle of a machine.
 **The scaling law follows from *Electrical quantities*.** A segment is copper in series down
 the stack, so what a segment adds is the current the machine can carry, and the shaft's speed
 is the voltage it produces. Neither of them is what the machine draws: that is its grid's to
-decide, and the solve decides it.
+decide, and the solution decides it.
 
-| Physical fact         | Electrical consequence                           |
-|-----------------------|--------------------------------------------------|
+| Physical fact         | Electrical consequence                            |
+|-----------------------|---------------------------------------------------|
 | Segments in the stack | **Rated current** - each segment adds a fixed `I` |
-| Shaft speed           | **Voltage**                                      |
-| The two multiplied    | **Rated watts** - what the machine can deliver   |
+| Shaft speed           | **Voltage**                                       |
+| The two multiplied    | **Rated watts** - what the machine can deliver    |
 
 What the machine actually delivers is what its grid draws, and the stress Create sees is that
 wattage - power is conserved across the generator. So a longer stack is a higher-current
@@ -636,9 +666,9 @@ by the class of what the machine is wired to.
 
 ### The rotor
 
-**A magnetised shaft is assembled, not crafted.** A Create shaft runs through a sequenced
+**A magnetized shaft is assembled, not crafted.** A Create shaft runs through a sequenced
 assembly that deploys **four magnets over four passes**, carrying an incomplete generator shaft
-between them. The centrepiece of the chain is built on a line rather than in a grid.
+between them. The centerpiece of the chain is built on a line rather than in a grid.
 
 **The finished shaft registers as an item.** Whether it is the block a stack is built from, or a
 fitting that goes into a frame block the way coils go into a transformer per *Multiblocks*, is
@@ -666,7 +696,7 @@ models, recipes and tags - live at the mod root and each module contributes its 
 them. A module's recipes, names and models stay the module's to write.
 
 **Recipes are values.** A Create processing recipe is a record in a shared package, not JSON written
-by hand and not Create's own recipe builders, so a recipe is type-checked at compile time and the
+by hand and not Create's own recipe builders. So, a recipe is type-checked at compile time and the
 mod holds no compile dependency on Create's datagen internals. What a wrong key still costs is
 caught by a GameTest, which loads the generated pack in a real world and checks every declared
 recipe came back under the Create type it was written for.

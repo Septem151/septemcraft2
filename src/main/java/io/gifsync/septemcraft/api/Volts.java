@@ -1,30 +1,41 @@
 package io.gifsync.septemcraft.api;
 
 /** An electrical potential, or a difference between two of them. */
-// Every method here throws until the solver is written, which is what the tests beside this
-// package are for. @DoNotCall is not the answer: it would stop those tests compiling.
-// TODO: Remove once implemented.
-@SuppressWarnings("DoNotCallSuggester")
 public record Volts(double value)
 {
 	/** No potential at all, which is what an unpowered node reads. */
 	public static final Volts ZERO = new Volts(0.0);
 
+	/** Checks that a potential is a number, which a potential of either sign is. */
+	public Volts
+	{
+		if (!Double.isFinite(value))
+		{
+			throw new IllegalArgumentException("A potential is finite, not " + value);
+		}
+	}
+
 	/** The current this potential drives through a resistance. */
 	public Amperes over(Ohms resistance)
 	{
-		throw new UnsupportedOperationException("Volts.over(Ohms) is not implemented.");
+		return new Amperes(value / resistance.value());
 	}
 
 	/** The resistance that would draw the given current at this potential. */
 	public Ohms over(Amperes current)
 	{
-		throw new UnsupportedOperationException("Volts.over(Amperes) is not implemented.");
+		return new Ohms(value / current.value());
 	}
 
 	/** The power carried by the given current at this potential. */
 	public Watts times(Amperes current)
 	{
-		throw new UnsupportedOperationException("Volts.times(Amperes) is not implemented.");
+		return new Watts(value * current.value());
+	}
+
+	/** The potential left when another is taken from this one. */
+	Volts minus(Volts other)
+	{
+		return new Volts(value - other.value);
 	}
 }
