@@ -8,8 +8,10 @@ import io.gifsync.septemcraft.api.Solution;
 import io.gifsync.septemcraft.api.SolutionStatus;
 import io.gifsync.septemcraft.api.Volts;
 import io.gifsync.septemcraft.api.Watts;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 
@@ -25,14 +27,48 @@ record ProbeReport(Rpm speed, ProbeCircuit probed, Solution solution)
 	/** How many figures past the point a shaft speed is printed to, a shaft being the coarser figure. */
 	private static final String SPEED = "%.1f";
 
-	/** The lines the probe prints, in the order they are read off the circuit. */
+	/**
+	 * The lines the probe prints: what it was held against and what became of the solve, then either
+	 * the readings that solve took or why it took none.
+	 */
 	List<Component> lines()
 	{
+		List<Component> lines = new ArrayList<>();
+		lines.add(reading("Shaft", format(SPEED, speed.value()) + " RPM, driving " + volts(speed.driving())));
+		lines.add(status());
+		lines.add(reading("Line", ProbeCircuit.run().count() + " blocks out and back, "
+			+ ohms(probed.lineResistance())));
+		lines.addAll(unanswered().map(List::of).orElseGet(this::readings));
+
+		return List.copyOf(lines);
+	}
+
+	/**
+	 * Why the solve has nothing to be read off it, or nothing at all where it answered and there are
+	 * readings to print in place of this.
+	 *
+	 * <p>A solve that never settled has readings, and they are the last pass of a circuit still
+	 * moving rather than a state it is ever in - a device below its floor drawing power, or one above
+	 * it drawing none. Printed beside the readings a settled solve gives they would read as
+	 * measurements, so the probe prints what is wrong with the circuit instead of measuring it.
+	 */
+	private Optional<Component> unanswered()
+	{
+		return switch (solution.status())
+		{
+			case SOLVED, DE_ENERGISED -> Optional.empty();
+			case UNSETTLED -> Optional.of(reading("No answer here",
+				watts(probed.device().ratedPower()) + " behind this line needs " + volts(probed.leastDriving())
+					+ " to hold above its " + volts(probed.device().minimumVoltage()) + " floor"));
+			case SHORTED, SINGULAR, TOO_LARGE -> Optional.of(
+				reading("No answer here", "the circuit does not determine one"));
+		};
+	}
+
+	/** Every reading the solve took off the circuit, in the order they are read off it. */
+	private List<Component> readings()
+	{
 		return List.of(
-			reading("Shaft", format(SPEED, speed.value()) + " RPM, driving " + volts(speed.driving())),
-			status(),
-			reading("Line", ProbeCircuit.run().count() + " blocks out and back, "
-				+ ohms(probed.lineResistance())),
 			reading("Far end", volts(solution.across(probed.farLive(), probed.farReturn())) + ", floor "
 				+ volts(probed.device().minimumVoltage())),
 			reading("Current", amperes(solution.through(probed.line().get(0)))),

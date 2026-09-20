@@ -72,6 +72,24 @@ record ProbeCircuit(Circuit circuit, Source machine, Load device, List<Conductor
 			new Ohms(ARMS * arm.value()));
 	}
 
+	/**
+	 * The least potential a machine must drive for this circuit to answer. A device holding its power
+	 * behind a line satisfies the circuit at two potentials at once, and the higher of the two is what
+	 * the line really runs at; this is where that higher one lands exactly on the device's floor.
+	 * Driven any slower the device collapses the line, gives up, recovers and collapses it again, and
+	 * there is no potential the circuit settles at.
+	 *
+	 * <p>A device with no floor at all gives up nowhere, so what is left is the shorter question of
+	 * whether the two potentials exist to choose between. The floor never asks for less than that.
+	 */
+	Volts leastDriving()
+	{
+		double held = device.ratedPower().value() * lineResistance.value();
+		double floor = device.minimumVoltage().value();
+
+		return new Volts(floor > 0.0 ? floor + held / floor : 2.0 * Math.sqrt(held));
+	}
+
 	/** How long the run is, which is the same length out as back. */
 	static Blocks run()
 	{
