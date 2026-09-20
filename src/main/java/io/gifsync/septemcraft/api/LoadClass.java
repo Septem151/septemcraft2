@@ -13,7 +13,9 @@ public enum LoadClass
 	/**
 	 * Draws the same current whatever it is given, so its power follows its potential. A motor
 	 * turning a Create machine is one: that machine's impact is a fixed su/RPM and one ampere is
-	 * one su/RPM, so a sagging bus turns the motor slower without changing what it pulls.
+	 * one su/RPM, so a sagging bus turns the motor slower without changing what it pulls. Given a
+	 * potential the other way it pulls the same current the other way, which is that motor turning
+	 * its machine backwards.
 	 */
 	CONSTANT_CURRENT,
 

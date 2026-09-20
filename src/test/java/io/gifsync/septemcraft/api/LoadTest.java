@@ -6,6 +6,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Checks what a nameplate amounts to, what each kind of device does when the bus it is on is not at
@@ -136,6 +137,70 @@ class LoadTest
 		assertThrows(IllegalArgumentException.class,
 			() -> load(RATED_POWER, RATED_VOLTAGE, new Volts(RATED_VOLTAGE.value() + 1.0)));
 		assertThrows(IllegalArgumentException.class, () -> load(RATED_POWER, RATED_VOLTAGE, new Volts(-1.0)));
+	}
+
+	/**
+	 * A potential the other way round is the same potential. Every kind of device draws the same
+	 * current backwards that it draws forwards, and burns the same power doing it - a shaft turning
+	 * backwards drives its line backwards, and what hangs off that line works.
+	 */
+	@Test
+	void everyKindOfDeviceWorksOnAPotentialTheOtherWayRound()
+	{
+		for (LoadClass behaviour : LoadClass.values())
+		{
+			Load load = rated(behaviour);
+			Amperes forwards = load.drawAt(RATED_VOLTAGE);
+			Amperes backwards = load.drawAt(reversed(RATED_VOLTAGE));
+
+			assertEquals(-forwards.value(), backwards.value(), EXACT,
+				behaviour + " does not draw backwards what it draws forwards");
+			assertEquals(RATED_VOLTAGE.times(forwards).value(),
+				reversed(RATED_VOLTAGE).times(backwards).value(), EXACT,
+				behaviour + " does not burn backwards what it burns forwards");
+		}
+	}
+
+	/**
+	 * A device on a line running backwards is still drawing from it. Anything reading as delivering
+	 * there would be a machine the grid is turning, which is a thing this model has and a device is
+	 * not one.
+	 */
+	@Test
+	void noKindOfDeviceDeliversIntoALineRunningBackwards()
+	{
+		for (LoadClass behaviour : LoadClass.values())
+		{
+			Volts backwards = reversed(RATED_VOLTAGE);
+			Watts drawn = backwards.times(rated(behaviour).drawAt(backwards));
+
+			assertTrue(drawn.value() > 0.0, behaviour + " delivers " + drawn + " into a line running backwards");
+		}
+	}
+
+	/**
+	 * Where a device gives up is a size and not a direction. It runs at its minimum either way round
+	 * and stalls just inside it either way round, so a line that has sagged past a device's floor
+	 * has stopped it whichever way it was running.
+	 */
+	@Test
+	void aDeviceGivesUpAtTheSameSizeOfPotentialEitherWayRound()
+	{
+		for (LoadClass behaviour : LoadClass.values())
+		{
+			Load load = rated(behaviour);
+
+			assertEquals(0.0, load.drawAt(reversed(new Volts(MINIMUM.value() - 1.0))).value(), EXACT,
+				behaviour + " runs below its minimum backwards");
+			assertTrue(load.drawAt(reversed(MINIMUM)).value() != 0.0,
+				behaviour + " does not run at its minimum backwards");
+		}
+	}
+
+	/** The same potential, the other way round. */
+	private static Volts reversed(Volts potential)
+	{
+		return new Volts(-potential.value());
 	}
 
 	/** A device wired to one node twice is across nothing, and cannot be asked what it draws. */

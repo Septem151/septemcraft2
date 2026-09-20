@@ -10,6 +10,11 @@ package io.gifsync.septemcraft.api;
  * has sagged below it; where it gives up is its own figure, and how far a line may sag before it
  * does is what sizing a run is about. A minimum of {@link Volts#ZERO} is a device with no floor,
  * which runs on whatever it is given.
+ *
+ * <p>Every one of those three figures is a size and not a direction. A device answers how much it
+ * is given rather than which way round, so a potential the other way runs it just the same and it
+ * draws the other way in answer. A shaft turning backwards drives its line backwards, and what
+ * hangs off that line works.
  */
 public record Load(ElementId id, NodeId from, NodeId to, LoadClass behaviour, Watts ratedPower,
 	Volts ratedVoltage, Volts minimumVoltage) implements Element
@@ -56,9 +61,10 @@ public record Load(ElementId id, NodeId from, NodeId to, LoadClass behaviour, Wa
 	}
 
 	/**
-	 * The current this load draws when given the potential named. At or above its minimum that is
-	 * what its class decides; below it the device is not running and draws nothing at all, which is
-	 * a step-down to none and not a taper towards it.
+	 * The current this load draws when given the potential named. Once that potential reaches its
+	 * minimum, which either way round it does at the same size, what the device draws is what its
+	 * class decides; below it the device is not running and draws nothing at all, which is a
+	 * step-down to none and not a taper towards it.
 	 */
 	public Amperes drawAt(Volts potential)
 	{
@@ -70,24 +76,39 @@ public record Load(ElementId id, NodeId from, NodeId to, LoadClass behaviour, Wa
 		return switch (behaviour)
 		{
 			case CONSTANT_RESISTANCE -> potential.over(resistance());
-			case CONSTANT_CURRENT -> ratedCurrent();
+			case CONSTANT_CURRENT -> holdingItsCurrentAt(potential);
 			case CONSTANT_POWER -> holdingItsPowerAt(potential);
 		};
 	}
 
 	/**
-	 * Whether this device is stalled at the potential named; above its minimum it is running. What
-	 * it draws while it runs is its class's to say, and a device that is stalled draws no power.
+	 * Whether this device is stalled at the potential named; once that potential is as large as its
+	 * minimum it is running. How large is the whole of the question, a device being given the same
+	 * potential whichever way the line it hangs off runs. What it draws while it runs is its
+	 * class's to say, and a device that is stalled draws no power.
 	 */
 	boolean isStalledAt(Volts potential)
 	{
-		return !(potential.value() >= minimumVoltage.value());
+		return !(Math.abs(potential.value()) >= minimumVoltage.value());
 	}
 
 	/** The resistance this load presents at the potential it is rated for. */
 	Ohms resistance()
 	{
 		return ratedVoltage.over(ratedCurrent());
+	}
+
+	/**
+	 * The current this load draws holding its current at a potential, which is its rated current
+	 * running the way that potential runs. Holding the current means holding how much of it there
+	 * is; a device pushing current into a line that is driving it backwards would be a machine, not
+	 * a device.
+	 */
+	private Amperes holdingItsCurrentAt(Volts potential)
+	{
+		double current = ratedCurrent().value();
+
+		return new Amperes(potential.value() < 0.0 ? -current : current);
 	}
 
 	/**
