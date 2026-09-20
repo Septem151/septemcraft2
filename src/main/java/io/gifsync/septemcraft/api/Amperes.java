@@ -3,8 +3,9 @@ package io.gifsync.septemcraft.api;
 /** A current, signed by the direction it runs in. */
 // Every method here throws until the solver is written, which is what the tests beside this
 // package are for. @DoNotCall is not the answer: it would stop those tests compiling.
+// TODO: Remove once implemented.
 @SuppressWarnings("DoNotCallSuggester")
-public record Amperes(double value) implements Quantity
+public record Amperes(double value)
 {
 	/** No current at all. */
 	public static final Amperes ZERO = new Amperes(0.0);
@@ -25,11 +26,5 @@ public record Amperes(double value) implements Quantity
 	public Watts dissipatedIn(Ohms resistance)
 	{
 		throw new UnsupportedOperationException("Amperes.dissipatedIn(Ohms) is not implemented.");
-	}
-
-	/** This current and another added together. */
-	public Amperes plus(Amperes other)
-	{
-		throw new UnsupportedOperationException("Amperes.plus(Amperes) is not implemented.");
 	}
 }

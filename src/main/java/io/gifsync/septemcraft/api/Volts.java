@@ -3,8 +3,9 @@ package io.gifsync.septemcraft.api;
 /** An electrical potential, or a difference between two of them. */
 // Every method here throws until the solver is written, which is what the tests beside this
 // package are for. @DoNotCall is not the answer: it would stop those tests compiling.
+// TODO: Remove once implemented.
 @SuppressWarnings("DoNotCallSuggester")
-public record Volts(double value) implements Quantity
+public record Volts(double value)
 {
 	/** No potential at all, which is what an unpowered node reads. */
 	public static final Volts ZERO = new Volts(0.0);
@@ -25,17 +26,5 @@ public record Volts(double value) implements Quantity
 	public Watts times(Amperes current)
 	{
 		throw new UnsupportedOperationException("Volts.times(Amperes) is not implemented.");
-	}
-
-	/** This potential and another added together. */
-	public Volts plus(Volts other)
-	{
-		throw new UnsupportedOperationException("Volts.plus(Volts) is not implemented.");
-	}
-
-	/** What is left of this potential once another is taken from it. */
-	public Volts minus(Volts other)
-	{
-		throw new UnsupportedOperationException("Volts.minus(Volts) is not implemented.");
 	}
 }

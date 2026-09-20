@@ -61,9 +61,10 @@ more *permissive*, and its cost is a linear solve that has to be numerically rig
 4. **Quantities may be negative.** Reverse power is a first-class outcome, not an error: a machine
    can be driven by its own grid. A quantity record guards finiteness and nothing else. An agent
    that adds a non-negative check has misread this.
-5. Package roots: `io.gifsync.septemcraft.electrification.circuit` - shared, plain Java, the model
-   and the solver. `io.gifsync.septemcraft.electrification.grid` - shared, the live level-wide
-   network and its persistence. Neither may import a feature.
+5. Package roots: `io.gifsync.septemcraft.api` - shared, plain Java, the quantities, the elements a
+   circuit is built from, the solver, and what solving one answers.
+   `io.gifsync.septemcraft.electrification.grid` - shared, the live level-wide network and its
+   persistence. Neither may import a feature.
 
 ## Order
 
@@ -112,9 +113,20 @@ consequence rather than a special case.
 Done with a union-find pass at construction, which also removes the singular matrix a 0 ohm edge
 would otherwise hand E3.
 
+**Every element carries an identity the builder mints.** Two runs of the same conductor between the
+same pair of nodes are a thing a built grid really holds, and each has a reading of its own, so an
+element is not identified by what it is made of and where it lands.
+
+**The first node the builder mints is the circuit's reference.** A voltage is measured from the
+reference of whichever galvanically joined part its node belongs to, and only the part holding that
+first node is promised to be measured from it. A transformer's secondary shares no metal with its
+primary, so a voltage in one compared against a voltage in the other means nothing however the two
+numbers fall.
+
 **Acceptance.** Contraction merges a chain of zero-resistance edges to a single node. A circuit
 carrying no source is legal and solves to zero throughout. A circuit whose graph is disconnected
-solves each part independently and neither part sees the other's sources.
+solves each part independently and neither part sees the other's sources. Two identical conductors
+between one pair of nodes read separately.
 
 ## E3. The linear solve
 
@@ -131,6 +143,17 @@ is what earns an abstraction.
 Degenerate cases are outcomes, never exceptions escaping the package: a circuit with no running
 source de-energises; a singular system is reported and de-energises rather than propagating NaN.
 
+**A short is reported apart from a singularity.** A source with no internal resistance carrying a
+run of conductor from one of its own terminals back to the other is asked to hold a voltage across
+a path that permits none, and that is the fault a player has built and can go and find. Anything
+else the system does not determine - two ideal sources in parallel disagreeing among them - is a
+singularity. A source whose windings resist anything at all is neither, however hard it is shorted:
+the windings hold the current to a large figure and a real one.
+
+**The node ceiling belongs to the solver, which is built for a number of them.** A larger circuit is
+reported too large rather than solved slowly. Zero-resistance edges are contracted before the count
+is taken, so a run of bolted blocks far longer than the ceiling still solves.
+
 **Acceptance.** A resistive divider, a parallel pair and a bridge each match hand-computed values.
 The ring fixture below gives 0.018 ohms to the tap opposite the feed, and 0.072 ohms with one side
 of the ring cut. The two-generator fixture reproduces its negative current - a test that asserts a
@@ -144,16 +167,28 @@ Three load classes as an enum: constant resistance, constant current, constant p
 power load is nonlinear, so it is linearised at its present terminal voltage and the solve repeats
 until voltages settle within `CONVERGENCE_TOLERANCE`.
 
-**Start flat, at source electromotive force, and damp.** A constant-power load on a resistive line
-has two mathematically valid operating points - the fixture below settles at 96 V and 10.67 A, and
-also satisfies itself at 32 V and 32 A. The second is physically unstable and must never be
-returned. A flat start converges to the first; an arbitrary start does not.
+**A device below its minimum draws nothing.** That is a step down to none and not a taper towards
+it, and it is what bounds a load holding its power: the harder such a device would pull as its
+supply sagged, the sooner it stops pulling at all.
+
+**The minimum is what removes the second operating point.** A constant-power load on a resistive
+line has two mathematically valid answers - the fixture below settles at 96 V and 10.67 A, and also
+satisfies itself at 32 V and 32 A, burning three times as much in the line as it delivers. The two
+always sit either side of half the source's electromotive force, so a device whose minimum is at or
+above that half is not running at the lower of them and cannot hold a circuit there. A device rated
+sensibly for the bus it is on leaves the solve one answer to find, and leaving that headroom for the
+line is the lesson the transmission fixtures teach.
+
+**Where a device's minimum sits below the lower answer the circuit really does have two**, and the
+solve returns the upper. Start flat, at source electromotive force, and damp.
 
 On reaching `MAX_ITERATIONS` without settling, the last converged state is held and the failure is
-reported. An oscillating grid is not allowed to become an oscillating world.
+reported. An oscillating grid is not allowed to become an oscillating world. A device whose minimum
+sits above the voltage its own draw leaves it will switch off, recover, and switch off again; that
+is a device sized badly for its line rather than a solver fault.
 
-**Acceptance.** Both single-feed fixtures below, to the figures given. A test seeded near the
-unstable root converges to 96 V rather than to 32 V.
+**Acceptance.** Both single-feed fixtures below, to the figures given. The single-feed load seeded
+anywhere from dead to twice its source reaches 96 V every time.
 
 ## E5. Transformers as circuit elements
 
@@ -236,7 +271,7 @@ winding rule, an invented conductor rating, a class boundary. The output is a re
 The JUnit corpus. Figures are the converged answers, not first-pass estimates.
 
 **Single feed.** 128 V source, 300 blocks of line at 0.01 ohms per block, a 1,024 W constant-power
-load at the far end. Solving `(128 - 3I) x I = 1024`:
+load at the far end that gives up below 64 V. Solving `(128 - 3I) x I = 1024`:
 
 | Quantity          | Value      |
 |-------------------|------------|
@@ -259,13 +294,13 @@ still fed.
 
 ## What this supersedes
 
-`../00-decisions.md` has not been edited. *Electrical quantities* currently says that current is a
-derived readout rather than a primary quantity, and *First vertical slice* says each generator
-segment contributes a fixed stress impact. Under this model current is solved for and a generator's
-impact answers to its load, so both statements need rewriting, and the scaling law that follows from
-them - stack length as current, shaft speed as voltage - needs restating as a consequence of the
-solve rather than as a rule of its own. Doing that is the first act of whoever picks this up, or the
-author's, before they do.
+`../00-decisions.md` has not been brought in line with this. *Electrical quantities* currently
+says that current is a derived readout rather than a primary quantity, and *First vertical slice*
+says each generator segment contributes a fixed stress impact. Under this model current is solved
+for and a generator's impact answers to its load, so both statements need rewriting, and the
+scaling law that follows from them - stack length as current, shaft speed as voltage - needs
+restating as a consequence of the solve rather than as a rule of its own. Doing that is the first
+act of whoever picks this up, or the author's, before they do.
 
 ## Out of scope
 

@@ -5,6 +5,6 @@ package io.gifsync.septemcraft.api;
  * {@link #to()}, so a primary taking power reads positive and a secondary giving it out reads
  * negative.
  */
-public record Winding(NodeId from, NodeId to) implements Element
+public record Winding(ElementId id, NodeId from, NodeId to) implements Element
 {
 }

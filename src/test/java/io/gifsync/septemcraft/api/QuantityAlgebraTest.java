@@ -16,7 +16,7 @@ class QuantityAlgebraTest
 	private static final double EXACT = 1.0e-12;
 
 	/**
-	 * A quantity that is not a number poisons every figure derived from it and says nothing about
+	 * A quantity that is NaN or infinity poisons every figure derived from it and says nothing about
 	 * where it came from, so it is refused where it enters rather than found later.
 	 */
 	@Test

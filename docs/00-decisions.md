@@ -131,10 +131,15 @@ Consequences:
 - **Gearing trades voltage for current at constant power.** A machine's rated current
   follows its copper and is independent of shaft speed, so gearing it up buys volts at the
   same amps. A transformer is a gearbox; that is the intended teaching hook.
-- **Every device has a voltage rating.** Below it the device does not run; from there up
-  to the ceiling of its voltage class it runs normally, and above that ceiling it fails
-  per *Failure model*. Because RPM *is* voltage, "this lamp needs 64 V" is the same
-  statement as Create's "this machine needs 32 RPM".
+- **Every device carries a nameplate and a minimum, and they are two numbers.** The
+  nameplate is the power it draws at the potential it is measured at - `1,024 W @ 128 V`,
+  the way a genset is rated - and what it draws at any other potential follows from that
+  and its load class. The minimum is where it gives up: below it the device does not run
+  and draws nothing at all. A device still runs on a line that has sagged beneath its
+  nameplate, and how far a line may sag before it stops is what sizing a run is about.
+  From the minimum up to the ceiling of its voltage class it runs normally, and above that
+  ceiling it fails per *Failure model*. Because RPM *is* voltage, "this lamp needs 64 V" is
+  the same statement as Create's "this machine needs 32 RPM".
 
 ## 7. Current types - AC and DC, with distinct jobs
 

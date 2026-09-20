@@ -3,21 +3,25 @@ package io.gifsync.septemcraft.api;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Checks what a nameplate amounts to, and what each kind of device does when the bus it is on is
- * not at the potential it was rated for. A device that holds its power is what makes a circuit
- * answer itself rather than fall out of one pass of arithmetic, so what it draws as its supply
- * sags is the behaviour the solver is built around.
+ * Checks what a nameplate amounts to, what each kind of device does when the bus it is on is not at
+ * the potential it was rated for, and where it stops doing anything at all. A device that holds its
+ * power is what makes a circuit answer itself rather than fall out of one pass of arithmetic, and
+ * the floor beneath it is what stops that answer running away.
  */
 class LoadTest
 {
+	/**
+	 * How far a drawn figure may stray before it is the wrong figure. Every number here is one
+	 * division rather than the end of a solution, so there is nothing to accumulate and this is tight.
+	 */
 	private static final double EXACT = 1.0e-12;
+
+	private static final ElementId ID = new ElementId(0);
 
 	private static final NodeId LIVE = new NodeId(1);
 
@@ -27,14 +31,24 @@ class LoadTest
 
 	private static final Volts RATED_VOLTAGE = new Volts(128.0);
 
-	/** A nameplate is a power at a potential, and the resistance and current follow from the pair. */
-	@Test
-	void aNameplateGivesAResistanceAndARatedCurrent()
-	{
-		Load load = rated(LoadClass.CONSTANT_RESISTANCE);
+	/** Where the devices here give up, which is a quarter of what they are rated for. */
+	private static final Volts MINIMUM = new Volts(32.0);
 
-		assertEquals(16.0, load.resistance().value(), EXACT);
-		assertEquals(8.0, load.ratedCurrent().value(), EXACT);
+	/**
+	 * A nameplate is a power at a potential, and the current follows from the pair. Every class
+	 * draws that much at the potential it was rated for, whatever each does either side of it.
+	 */
+	@Test
+	void everyKindOfDeviceDrawsItsRatedCurrentAtItsRatedPotential()
+	{
+		for (LoadClass behaviour : LoadClass.values())
+		{
+			Load load = rated(behaviour);
+
+			assertEquals(8.0, load.ratedCurrent().value(), EXACT, behaviour + " is rated for the wrong current");
+			assertEquals(load.ratedCurrent().value(), load.drawAt(RATED_VOLTAGE).value(), EXACT,
+				behaviour + " does not draw its rated current at its rated potential");
+		}
 	}
 
 	/**
@@ -59,41 +73,69 @@ class LoadTest
 	}
 
 	/**
-	 * A bus with nothing driving it is an ordinary state, and a device holding its power would draw
-	 * without limit on one. Asking for the current there must answer a figure, and the interesting
-	 * case is not zero itself but a potential just off it, which is where dividing runs away.
+	 * A device given less than it needs is not running, and a device that is not running draws
+	 * no amps. This is what bounds a device holding its power: the harder it would pull as its
+	 * supply sagged, the sooner it stops pulling at all.
 	 */
-	@ParameterizedTest
-	@ValueSource(doubles = {0.0, -0.0, 1.0e-300, 1.0e-12, -1.0e-9, -64.0})
-	void aDeviceHoldingItsPowerOnAnAllButDeadBusDrawsSomethingFinite(double supplied)
-	{
-		double drawn = rated(LoadClass.CONSTANT_POWER).drawAt(new Volts(supplied)).value();
-
-		assertTrue(Double.isFinite(drawn), "a dead bus draws " + drawn);
-	}
-
-	/** A dead bus draws nothing at all, whatever the device on it is rated for. */
 	@Test
-	void aDeviceOnADeadBusDrawsNothing()
+	void aDeviceGivenLessThanItNeedsDrawsNothing()
 	{
 		for (LoadClass behaviour : LoadClass.values())
 		{
-			assertEquals(0.0, rated(behaviour).drawAt(Volts.ZERO).value(), EXACT, behaviour + " draws off a dead bus");
+			Load load = rated(behaviour);
+
+			assertEquals(0.0, load.drawAt(new Volts(MINIMUM.value() - 1.0)).value(), EXACT,
+				behaviour + " runs below its minimum");
+			assertEquals(0.0, load.drawAt(new Volts(1.0)).value(), EXACT, behaviour + " runs on almost nothing");
+			assertEquals(0.0, load.drawAt(Volts.ZERO).value(), EXACT, behaviour + " runs on a dead bus");
 		}
+	}
+
+	/** A device given exactly what it needs is running, and draws whatever its class says it does. */
+	@Test
+	void aDeviceGivenExactlyWhatItNeedsIsRunning()
+	{
+		for (LoadClass behaviour : LoadClass.values())
+		{
+			double drawn = rated(behaviour).drawAt(MINIMUM).value();
+
+			assertEquals(behaviour == LoadClass.CONSTANT_RESISTANCE
+				? 2.0
+				: behaviour == LoadClass.CONSTANT_CURRENT ? 8.0 : 32.0, drawn, EXACT,
+				behaviour + " does not run at its minimum");
+		}
+	}
+
+	/** A device with no floor at all runs on whatever it is given, however little that is. */
+	@Test
+	void aDeviceWithNoFloorRunsOnWhateverItIsGiven()
+	{
+		Load unfloored = new Load(ID, LIVE, RETURN, LoadClass.CONSTANT_RESISTANCE, RATED_POWER, RATED_VOLTAGE,
+			Volts.ZERO);
+
+		assertEquals(0.25, unfloored.drawAt(new Volts(4.0)).value(), EXACT);
 	}
 
 	/** A nameplate naming no power, or no potential to take it at, names no device. */
 	@Test
 	void aNameplateNamingNoDeviceIsRefused()
 	{
+		assertThrows(IllegalArgumentException.class, () -> load(RATED_POWER, Volts.ZERO, MINIMUM));
+		assertThrows(IllegalArgumentException.class, () -> load(Watts.ZERO, RATED_VOLTAGE, MINIMUM));
+		assertThrows(IllegalArgumentException.class, () -> load(new Watts(-1024.0), RATED_VOLTAGE, MINIMUM));
+		assertThrows(IllegalArgumentException.class, () -> load(RATED_POWER, new Volts(-128.0), MINIMUM));
+	}
+
+	/**
+	 * A device that gives up above the potential it is measured at is not a device: it would never
+	 * be running at the one figure its nameplate describes.
+	 */
+	@Test
+	void aFloorAboveTheNameplateIsRefused()
+	{
 		assertThrows(IllegalArgumentException.class,
-			() -> new Load(LIVE, RETURN, LoadClass.CONSTANT_POWER, RATED_POWER, Volts.ZERO));
-		assertThrows(IllegalArgumentException.class,
-			() -> new Load(LIVE, RETURN, LoadClass.CONSTANT_POWER, Watts.ZERO, RATED_VOLTAGE));
-		assertThrows(IllegalArgumentException.class,
-			() -> new Load(LIVE, RETURN, LoadClass.CONSTANT_POWER, new Watts(-1024.0), RATED_VOLTAGE));
-		assertThrows(IllegalArgumentException.class,
-			() -> new Load(LIVE, RETURN, LoadClass.CONSTANT_POWER, RATED_POWER, new Volts(-128.0)));
+			() -> load(RATED_POWER, RATED_VOLTAGE, new Volts(RATED_VOLTAGE.value() + 1.0)));
+		assertThrows(IllegalArgumentException.class, () -> load(RATED_POWER, RATED_VOLTAGE, new Volts(-1.0)));
 	}
 
 	/** A device wired to one node twice is across nothing, and cannot be asked what it draws. */
@@ -101,11 +143,21 @@ class LoadTest
 	void aDeviceWiredToItselfIsRefused()
 	{
 		assertThrows(IllegalArgumentException.class,
-			() -> new Load(LIVE, LIVE, LoadClass.CONSTANT_POWER, RATED_POWER, RATED_VOLTAGE));
+			() -> new Load(ID, LIVE, LIVE, LoadClass.CONSTANT_POWER, RATED_POWER, RATED_VOLTAGE, MINIMUM));
 	}
 
 	private static Load rated(LoadClass behaviour)
 	{
-		return new Load(LIVE, RETURN, behaviour, RATED_POWER, RATED_VOLTAGE);
+		return new Load(ID, LIVE, RETURN, behaviour, RATED_POWER, RATED_VOLTAGE, MINIMUM);
+	}
+
+	/**
+	 * Puts a device together from the three figures a nameplate carries, for the tests that expect
+	 * the attempt to be refused. Nothing is handed back: what is being asked is whether such a
+	 * device can be built at all.
+	 */
+	private static void load(Watts ratedPower, Volts ratedVoltage, Volts minimumVoltage)
+	{
+		new Load(ID, LIVE, RETURN, LoadClass.CONSTANT_POWER, ratedPower, ratedVoltage, minimumVoltage);
 	}
 }

@@ -3,8 +3,9 @@ package io.gifsync.septemcraft.api;
 /** A power, signed by whether it is delivered or drawn. */
 // Every method here throws until the solver is written, which is what the tests beside this
 // package are for. @DoNotCall is not the answer: it would stop those tests compiling.
+// TODO: Remove once implemented.
 @SuppressWarnings("DoNotCallSuggester")
-public record Watts(double value) implements Quantity
+public record Watts(double value)
 {
 	/** No power at all. */
 	public static final Watts ZERO = new Watts(0.0);
@@ -25,11 +26,5 @@ public record Watts(double value) implements Quantity
 	public Watts lessLoss(LossFraction loss)
 	{
 		throw new UnsupportedOperationException("Watts.lessLoss(LossFraction) is not implemented.");
-	}
-
-	/** This power and another added together. */
-	public Watts plus(Watts other)
-	{
-		throw new UnsupportedOperationException("Watts.plus(Watts) is not implemented.");
 	}
 }

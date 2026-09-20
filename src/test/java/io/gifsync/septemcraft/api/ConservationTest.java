@@ -108,13 +108,14 @@ class ConservationTest
 		NodeId tap = one.node();
 		one.source(reference, live, new Volts(12.0), Ohms.ZERO);
 		one.conductor(live, tap, new Ohms(8.0));
-		one.load(tap, reference, LoadClass.CONSTANT_RESISTANCE, new Watts(36.0), new Volts(12.0));
+		one.load(tap, reference, LoadClass.CONSTANT_RESISTANCE, new Watts(36.0), new Volts(12.0), Volts.ZERO);
 
 		CircuitBuilder other = new CircuitBuilder();
 		NodeId otherReference = other.node();
 		NodeId otherLive = other.node();
 		NodeId otherTap = other.node();
-		other.load(otherTap, otherReference, LoadClass.CONSTANT_RESISTANCE, new Watts(36.0), new Volts(12.0));
+		other.load(otherTap, otherReference, LoadClass.CONSTANT_RESISTANCE, new Watts(36.0), new Volts(12.0),
+			Volts.ZERO);
 		other.conductor(otherLive, otherTap, new Ohms(8.0));
 		other.source(otherReference, otherLive, new Volts(12.0), Ohms.ZERO);
 

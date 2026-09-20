@@ -21,7 +21,7 @@ class RotationTest
 		assertEquals(256.0, new Rpm(256.0).driving().value(), EXACT);
 	}
 
-	/** A shaft turned backwards drives backwards, which is what lets a machine be driven by the bus. */
+	/** A shaft turned backwards also drives backwards, which is what lets a machine be driven by the bus. */
 	@Test
 	void aShaftTurnedTheOtherWayDrivesTheOtherWay()
 	{

@@ -19,6 +19,28 @@ final class Fixtures
 	/** The power a test rates its devices for, which is the fixture's figure and no rule. */
 	static final Watts RATING = new Watts(1024.0);
 
+	/**
+	 * How much of the resistance a line could carry and still be answerable the feed fixtures use.
+	 * Three quarters of it leaves the far end sagging to three quarters of the machine's potential,
+	 * which is a line worth stepping up and not one about to collapse.
+	 */
+	private static final double LINE_SHARE_OF_ITS_CEILING = 0.75;
+
+	/**
+	 * A device that runs on whatever it is given. The fixtures that exist to pin a circuit's
+	 * arithmetic use one, so that nothing switches off partway through and changes what is being
+	 * measured.
+	 */
+	private static final Volts NO_FLOOR = Volts.ZERO;
+
+	/**
+	 * Where the devices on the feed fixtures give up. A device holding its power on a resistive
+	 * line satisfies the circuit at two potentials, and those two always sit either side of half
+	 * the machine's own - so a floor exactly there admits the answer the line really settles at and
+	 * refuses the collapsed one, whatever the line is retuned to resist.
+	 */
+	private static final Volts FEED_FLOOR = new Volts(NOMINAL.value() / 2.0);
+
 	private Fixtures()
 	{
 	}
@@ -52,8 +74,32 @@ final class Fixtures
 
 	/** A machine feeding a load that holds its power, down a line long enough to sag. */
 	record Feed(Circuit circuit, NodeId reference, NodeId live, NodeId farLive, NodeId farReturn, Source source,
-		Load load, List<Conductor> line)
+		Load load, List<Conductor> line, Ohms lineResistance)
 	{
+		/** The potential the far end settles at, which is the upper of the two this circuit permits. */
+		Volts stable()
+		{
+			return farEnd(1.0);
+		}
+
+		/** The potential the far end would sit at in collapse, which is the lower of the two. */
+		Volts collapsed()
+		{
+			return farEnd(-1.0);
+		}
+
+		/**
+		 * A device holding its power on a resistive line satisfies the circuit at two potentials,
+		 * one either side of half the machine's own. Both are read off the fixture's own figures,
+		 * so neither moves if what a block of wire resists is retuned.
+		 */
+		private Volts farEnd(double branch)
+		{
+			double driving = NOMINAL.value();
+			double margin = 1.0 - 4.0 * RATING.value() * lineResistance.value() / (driving * driving);
+
+			return new Volts(driving * (1.0 + branch * Math.sqrt(margin)) / 2.0);
+		}
 	}
 
 	/** The same feed behind a matched pair of transformers, running the line above its machines. */
@@ -91,7 +137,8 @@ final class Fixtures
 
 		Source source = builder.source(reference, live, new Volts(12.0), Ohms.ZERO);
 		Conductor arm = builder.conductor(live, tap, new Ohms(8.0));
-		Load load = builder.load(tap, reference, LoadClass.CONSTANT_RESISTANCE, new Watts(36.0), new Volts(12.0));
+		Load load = builder.load(tap, reference, LoadClass.CONSTANT_RESISTANCE, new Watts(36.0), new Volts(12.0),
+			NO_FLOOR);
 
 		return new Divider(builder.build(), reference, live, tap, arm, source, load);
 	}
@@ -108,7 +155,8 @@ final class Fixtures
 		builder.source(reference, live, new Volts(12.0), Ohms.ZERO);
 		builder.conductor(live, middle, new Ohms(8.0));
 		Conductor joint = builder.conductor(middle, tap, jointResistance);
-		Load load = builder.load(tap, reference, LoadClass.CONSTANT_RESISTANCE, new Watts(36.0), new Volts(12.0));
+		Load load = builder.load(tap, reference, LoadClass.CONSTANT_RESISTANCE, new Watts(36.0), new Volts(12.0),
+			NO_FLOOR);
 
 		return new JointedDivider(builder.build(), reference, live, middle, tap, joint, load);
 	}
@@ -123,7 +171,7 @@ final class Fixtures
 		Source source = builder.source(reference, live, new Volts(12.0), Ohms.ZERO);
 		Conductor wide = builder.conductor(live, tap, new Ohms(3.0));
 		Conductor narrow = builder.conductor(live, tap, new Ohms(6.0));
-		builder.load(tap, reference, LoadClass.CONSTANT_RESISTANCE, new Watts(36.0), new Volts(12.0));
+		builder.load(tap, reference, LoadClass.CONSTANT_RESISTANCE, new Watts(36.0), new Volts(12.0), NO_FLOOR);
 
 		return new ParallelPair(builder.build(), tap, wide, narrow, source);
 	}
@@ -171,19 +219,20 @@ final class Fixtures
 			builder.conductor(rightCorner, feed, edge);
 		}
 
-		builder.load(tap, reference, LoadClass.CONSTANT_CURRENT, new Watts(1.0), new Volts(1.0));
+		builder.load(tap, reference, LoadClass.CONSTANT_CURRENT, new Watts(1.0), new Volts(1.0), NO_FLOOR);
 
 		return new Ring(builder.build(), reference, feed, tap, edge);
 	}
 
 	/**
-	 * A machine feeding a load that holds its power, a hundred and fifty blocks of catenary wire out
-	 * and as many back. The line is long enough that the potential at the far end sags well below
-	 * the machine's own.
+	 * A machine feeding a load that holds its power, down a line of catenary wire out and as many
+	 * blocks back. The line is long enough that the potential at the far end sags well below the
+	 * machine's own, and short enough that there is still an answer.
 	 */
 	static Feed singleFeed()
 	{
-		Ohms arm = ConductorForm.CATENARY_WIRE.resistanceOver(new Blocks(150));
+		Blocks length = feedLength();
+		Ohms arm = ConductorForm.CATENARY_WIRE.resistanceOver(length);
 
 		CircuitBuilder builder = new CircuitBuilder();
 		NodeId reference = builder.node();
@@ -194,15 +243,31 @@ final class Fixtures
 		Source source = builder.source(reference, live, NOMINAL, Ohms.ZERO);
 		Conductor out = builder.conductor(live, farLive, arm);
 		Conductor back = builder.conductor(farReturn, reference, arm);
-		Load load = builder.load(farLive, farReturn, LoadClass.CONSTANT_POWER, RATING, NOMINAL);
+		Load load = builder.load(farLive, farReturn, LoadClass.CONSTANT_POWER, RATING, NOMINAL, FEED_FLOOR);
 
-		return new Feed(builder.build(), reference, live, farLive, farReturn, source, load, List.of(out, back));
+		return new Feed(builder.build(), reference, live, farLive, farReturn, source, load, List.of(out, back),
+			new Ohms(2.0 * arm.value()));
+	}
+
+	/**
+	 * How long a run the transmission fixtures use. A device holding its power on a resistive line
+	 * has an answer at all only while the line resists less than the machine's own potential squared
+	 * over four times the device's power; past that there is nothing for a solver to find. The
+	 * length is worked back from that ceiling rather than written down, so that retuning what a
+	 * block of wire resists moves the run rather than quietly leaving the fixture unanswerable.
+	 */
+	private static Blocks feedLength()
+	{
+		double ceiling = NOMINAL.value() * NOMINAL.value() / (4.0 * RATING.value());
+		double wanted = LINE_SHARE_OF_ITS_CEILING * ceiling;
+
+		return new Blocks((int) Math.round(wanted / (2.0 * ConductorForm.CATENARY_WIRE.perBlock().value())));
 	}
 
 	/** The same machine, line and load, with the line run above the machines by a matched pair of transformers. */
 	static SteppedFeed steppedFeed(TurnsRatio step)
 	{
-		Ohms arm = ConductorForm.CATENARY_WIRE.resistanceOver(new Blocks(150));
+		Ohms arm = ConductorForm.CATENARY_WIRE.resistanceOver(feedLength());
 
 		CircuitBuilder builder = new CircuitBuilder();
 		NodeId reference = builder.node();
@@ -215,13 +280,13 @@ final class Fixtures
 		NodeId farReturn = builder.node();
 
 		builder.source(reference, live, NOMINAL, Ohms.ZERO);
-		builder.transformer(new Winding(live, reference), new Winding(lineLive, lineReturn), step,
+		builder.transformer(builder.winding(live, reference), builder.winding(lineLive, lineReturn), step,
 			LossFraction.NONE);
 		Conductor out = builder.conductor(lineLive, farLineLive, arm);
 		Conductor back = builder.conductor(farLineReturn, lineReturn, arm);
-		builder.transformer(new Winding(farLineLive, farLineReturn), new Winding(farLive, farReturn),
+		builder.transformer(builder.winding(farLineLive, farLineReturn), builder.winding(farLive, farReturn),
 			step.inverted(), LossFraction.NONE);
-		Load load = builder.load(farLive, farReturn, LoadClass.CONSTANT_POWER, RATING, NOMINAL);
+		Load load = builder.load(farLive, farReturn, LoadClass.CONSTANT_POWER, RATING, NOMINAL, FEED_FLOOR);
 
 		return new SteppedFeed(builder.build(), load, List.of(out, back));
 	}
@@ -236,10 +301,10 @@ final class Fixtures
 		NodeId secondaryReturn = builder.node();
 
 		Source source = builder.source(reference, live, NOMINAL, Ohms.ZERO);
-		Transformer transformer = builder.transformer(new Winding(live, reference),
-			new Winding(secondaryLive, secondaryReturn), ratio, loss);
+		Transformer transformer = builder.transformer(builder.winding(live, reference),
+			builder.winding(secondaryLive, secondaryReturn), ratio, loss);
 		Load load = builder.load(secondaryLive, secondaryReturn, LoadClass.CONSTANT_RESISTANCE, RATING,
-			ratio.applyTo(NOMINAL));
+			ratio.applyTo(NOMINAL), NO_FLOOR);
 
 		return new Coupled(builder.build(), secondaryLive, secondaryReturn, transformer, source, load);
 	}
@@ -253,7 +318,7 @@ final class Fixtures
 
 		Source fast = builder.source(reference, live, NOMINAL, WINDING);
 		Source slow = builder.source(reference, live, new Volts(120.0), WINDING);
-		Load load = builder.load(live, reference, LoadClass.CONSTANT_POWER, RATING, NOMINAL);
+		Load load = builder.load(live, reference, LoadClass.CONSTANT_POWER, RATING, NOMINAL, NO_FLOOR);
 
 		return new TwoMachines(builder.build(), live, reference, fast, slow, load);
 	}
@@ -268,7 +333,7 @@ final class Fixtures
 		NodeId alsoAdrift = builder.node();
 
 		builder.source(reference, live, NOMINAL, Ohms.ZERO);
-		builder.load(live, reference, LoadClass.CONSTANT_RESISTANCE, RATING, NOMINAL);
+		builder.load(live, reference, LoadClass.CONSTANT_RESISTANCE, RATING, NOMINAL, NO_FLOOR);
 		Conductor stranded = builder.conductor(adrift, alsoAdrift, new Ohms(4.0));
 
 		return new Island(builder.build(), adrift, alsoAdrift, stranded);
@@ -324,7 +389,8 @@ final class Fixtures
 		for (int drawing = 1 + random.nextInt(3); drawing > 0; drawing--)
 		{
 			builder.load(nodes.get(1 + random.nextInt(nodes.size() - 1)), nodes.get(0),
-				classes[random.nextInt(classes.length)], new Watts(1.0 + random.nextDouble() * 512.0), NOMINAL);
+				classes[random.nextInt(classes.length)], new Watts(1.0 + random.nextDouble() * 512.0), NOMINAL,
+				NO_FLOOR);
 		}
 
 		return builder.build();

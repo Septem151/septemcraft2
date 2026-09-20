@@ -41,7 +41,7 @@ class SolverTest
 	 * should add one gets the single arm right and this wrong.
 	 */
 	@Test
-	void aParallelPairSharesItsCurrentByItsConductances()
+	void aParallelPairSharesItsCurrentByItsConductance()
 	{
 		Fixtures.ParallelPair pair = Fixtures.parallelPair();
 
@@ -99,9 +99,8 @@ class SolverTest
 	/**
 	 * A device holding its power draws harder as its supply sags, and sagging further is what makes
 	 * it draw harder still. Two potentials satisfy that circuit and only the upper one is stable:
-	 * the lower is the collapse the grid would have to already be in to sit there. The stable one
-	 * always leaves more than half the machine's own potential at the far end, and the unstable one
-	 * always less, which is how they are told apart without naming what the line resists.
+	 * the lower is the collapse the grid would have to already be in to sit there. The fixture
+	 * works both out from its own figures, so this names the answer rather than a half of something.
 	 */
 	@Test
 	void aFeedHoldingItsPowerSettlesOnTheStableAnswer()
@@ -110,24 +109,20 @@ class SolverTest
 
 		Solution solution = new CircuitSolver().solve(feed.circuit());
 
-		double delivered = solution.across(feed.farLive(), feed.farReturn()).value();
-
 		assertEquals(SolutionStatus.SOLVED, solution.status());
-		assertTrue(delivered > Fixtures.NOMINAL.value() / 2.0,
-			"the feed settled on the collapsed answer at " + delivered + " volts");
-		assertTrue(delivered < Fixtures.NOMINAL.value(), "the far end did not sag at all");
+		assertEquals(feed.stable().value(), solution.across(feed.farLive(), feed.farReturn()).value(), CLOSE);
 		assertEquals(Fixtures.RATING.value(), solution.drawnBy(feed.load()).value(), CLOSE);
 		CircuitAssertions.assertConserves(feed.circuit(), solution);
 	}
 
 	/**
-	 * The answer a circuit has does not depend on what the last tick left behind, so seeding the
-	 * solver anywhere at all - including below the collapsed answer it must not fall into - reaches
-	 * the same potential it reaches from nothing.
+	 * What the last tick left behind must not decide what this tick reads. A grid seeded anywhere at
+	 * all - dead, mid-collapse, or above the machine that feeds it - reaches the one answer the line
+	 * really settles at, so a sag that has already happened recovers rather than latching.
 	 */
 	@ParameterizedTest
-	@ValueSource(doubles = {0.5, 1.0, 5.0, 20.0, 32.0, 33.0, 34.0, 50.0, 95.0, 96.0, 127.0, 128.0, 1000.0})
-	void aFeedHoldingItsPowerReachesTheSameAnswerFromAnywhere(double seeded)
+	@ValueSource(doubles = {0.0, 0.05, 0.25, 0.4, 0.5, 0.6, 0.75, 1.0, 2.0})
+	void aFeedHoldingItsPowerClimbsBackToTheStableAnswer(double shareOfTheMachinesPotential)
 	{
 		Fixtures.Feed feed = Fixtures.singleFeed();
 		CircuitSolver solver = new CircuitSolver();
@@ -135,15 +130,30 @@ class SolverTest
 		Map<NodeId, Volts> seed = new HashMap<>();
 		seed.put(feed.reference(), Volts.ZERO);
 		seed.put(feed.live(), Fixtures.NOMINAL);
-		seed.put(feed.farLive(), new Volts(seeded));
+		seed.put(feed.farLive(), new Volts(shareOfTheMachinesPotential * Fixtures.NOMINAL.value()));
 		seed.put(feed.farReturn(), Volts.ZERO);
 
-		Solution fromNothing = solver.solve(feed.circuit());
 		Solution fromSeed = solver.solveFrom(feed.circuit(), seed);
 
 		assertEquals(SolutionStatus.SOLVED, fromSeed.status());
-		assertEquals(fromNothing.across(feed.farLive(), feed.farReturn()).value(),
-			fromSeed.across(feed.farLive(), feed.farReturn()).value(), CLOSE);
+		assertEquals(feed.stable().value(), fromSeed.across(feed.farLive(), feed.farReturn()).value(), CLOSE);
+	}
+
+	/**
+	 * The collapsed answer is the one a line sags into and does not climb out of, and it is only
+	 * reachable by a device that would still be running down there. A device that gives up above it
+	 * cannot hold the circuit in it, so the solver has one answer to find rather than the right one
+	 * of two.
+	 */
+	@Test
+	void theCollapsedAnswerIsBelowWhereTheDeviceGivesUp()
+	{
+		Fixtures.Feed feed = Fixtures.singleFeed();
+
+		assertTrue(feed.collapsed().value() < feed.load().minimumVoltage().value(),
+			"the device would still be running at the collapsed answer");
+		assertTrue(feed.stable().value() > feed.load().minimumVoltage().value(),
+			"the device gives up before the answer the line settles at");
 	}
 
 	/**

@@ -8,17 +8,30 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Checks what a circuit is once it has been assembled, and in particular what a conductor resisting
- * nothing does to it. Two blocks bolted together is the commonest thing in a built grid and the one
- * a solver working in conductances cannot take at face value, so what a caller sees of that is
+ * nothing does to it. Two blocks bolted together is the most common thing in a built grid and the one
+ * a solver working in conductance cannot take at face value, so what a caller sees of that is
  * worth pinning: nothing at all.
  */
 class CircuitAssemblyTest
 {
+	/**
+	 * How far two readings that should be one number may stray before they are two. A joint
+	 * resisting nothing is contracted away before anything is solved, so both its ends come out of
+	 * the same arithmetic, and a circuit that was not solved is filled with zeros outright.
+	 */
 	private static final double EXACT = 1.0e-12;
 
+	/**
+	 * How far two figures that each came out of a solve of their own may stray and still be the
+	 * same answer. Looser than {@link #EXACT} because nothing promises the two circuits were solved
+	 * by the same arithmetic, only that they agree.
+	 */
 	private static final double CLOSE = 1.0e-9;
 
-	/** Every node put into a circuit is in the circuit, whether or not anything came to join it. */
+	/** A solver deliberately sized for far less than the mod's own, so a test can outgrow it cheaply. */
+	private static final int SMALL = 16;
+
+	/** Every node put into a circuit is in the circuit, regardless of whether anything came to join it. */
 	@Test
 	void aCircuitHoldsEveryNodeItWasBuiltWith()
 	{
@@ -96,7 +109,7 @@ class CircuitAssemblyTest
 
 		builder.source(reference, live, new Volts(12.0), Ohms.ZERO);
 		builder.conductor(live, tap, new Ohms(8.0));
-		builder.load(tap, reference, LoadClass.CONSTANT_RESISTANCE, new Watts(36.0), new Volts(12.0));
+		builder.load(tap, reference, LoadClass.CONSTANT_RESISTANCE, new Watts(36.0), new Volts(12.0), Volts.ZERO);
 		Conductor first = builder.conductor(tap, corner, Ohms.ZERO);
 		Conductor second = builder.conductor(corner, farCorner, Ohms.ZERO);
 		Conductor third = builder.conductor(farCorner, tap, Ohms.ZERO);
@@ -118,7 +131,7 @@ class CircuitAssemblyTest
 	@Test
 	void aLongRunOfBoltedBlocksIsNotTooLargeToSolve()
 	{
-		CircuitSolver solver = new CircuitSolver();
+		CircuitSolver solver = new CircuitSolver(SMALL);
 
 		CircuitBuilder builder = new CircuitBuilder();
 		NodeId reference = builder.node();
@@ -133,7 +146,8 @@ class CircuitAssemblyTest
 			previous = next;
 		}
 
-		builder.load(previous, reference, LoadClass.CONSTANT_RESISTANCE, Fixtures.RATING, Fixtures.NOMINAL);
+		builder.load(previous, reference, LoadClass.CONSTANT_RESISTANCE, Fixtures.RATING, Fixtures.NOMINAL,
+			Volts.ZERO);
 
 		Solution solution = solver.solve(builder.build());
 
@@ -148,7 +162,7 @@ class CircuitAssemblyTest
 	@Test
 	void aCircuitLargerThanTheSolverIsSizedForReadsAsTooLarge()
 	{
-		CircuitSolver solver = new CircuitSolver();
+		CircuitSolver solver = new CircuitSolver(SMALL);
 
 		CircuitBuilder builder = new CircuitBuilder();
 		NodeId reference = builder.node();

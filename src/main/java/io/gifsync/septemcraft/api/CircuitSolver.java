@@ -9,13 +9,41 @@ import java.util.Map;
  */
 // Every method here throws until the solver is written, which is what the tests beside this
 // package are for. @DoNotCall is not the answer: it would stop those tests compiling.
+// TODO: Remove once implemented.
 @SuppressWarnings("DoNotCallSuggester")
 public final class CircuitSolver
 {
-	/** The most nodes this solver will take on, beyond which a circuit reads as too large. */
+	private final int maxNodes;
+
+	/** A solver sized for the largest circuit the mod is expected to hand it. */
+	public CircuitSolver()
+	{
+		this(defaultMaxNodes());
+	}
+
+	/**
+	 * A solver sized for the number of nodes named. Solving costs the cube of this, so it is what
+	 * keeps a solve inside a tick, and a smaller one is a smaller ceiling rather than a slower
+	 * solver.
+	 */
+	public CircuitSolver(int maxNodes)
+	{
+		this.maxNodes = maxNodes;
+	}
+
+	/**
+	 * The most electrical points this solver will take on, beyond which a circuit reads as too
+	 * large. Blocks bolted to blocks collapse into one point before this is counted, so a run far
+	 * longer than this still solves.
+	 */
 	public int maxNodes()
 	{
-		throw new UnsupportedOperationException("CircuitSolver.maxNodes() is not implemented.");
+		return maxNodes;
+	}
+
+	private static int defaultMaxNodes()
+	{
+		throw new UnsupportedOperationException("CircuitSolver() is not implemented.");
 	}
 
 	/** Solves a circuit from whatever the solver's own starting point is. */
@@ -26,7 +54,7 @@ public final class CircuitSolver
 
 	/**
 	 * Solves a circuit starting from the potentials given, which stands in for the answer a
-	 * previous tick left behind. The answer reached must not depend on where it started.
+	 * previous tick left behind.
 	 */
 	public Solution solveFrom(Circuit circuit, Map<NodeId, Volts> seed)
 	{

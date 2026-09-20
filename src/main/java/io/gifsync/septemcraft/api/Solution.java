@@ -10,12 +10,21 @@ public interface Solution
 	SolutionStatus status();
 
 	/**
-	 * The potential at a node, against the circuit's own reference. Two nodes joined by a conductor
-	 * that resists nothing are one point electrically, and both read alike.
+	 * The potential at a node, measured from the reference of whichever part of the circuit that
+	 * node belongs to. The part holding {@link Circuit#reference()} is measured from there, so that
+	 * node reads nothing.
+	 *
+	 * <p>Two nodes joined by a conductor that resists nothing are one point electrically, and both
+	 * read alike. Two nodes in parts that share no metal are not comparable at all, and the
+	 * difference between their readings means nothing.
 	 */
 	Volts voltageAt(NodeId node);
 
-	/** The potential at one node measured against another. */
+	/**
+	 * How far the first node sits above the second, which is the potential at {@code from} less the
+	 * potential at {@code to}. Positive when {@code from} is the higher of the two. Meaningful only
+	 * where both nodes belong to one part of the circuit.
+	 */
 	Volts across(NodeId from, NodeId to);
 
 	/**
