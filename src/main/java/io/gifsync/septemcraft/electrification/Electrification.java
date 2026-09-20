@@ -1,7 +1,9 @@
 package io.gifsync.septemcraft.electrification;
 
 import io.gifsync.septemcraft.electrification.material.Materials;
+import io.gifsync.septemcraft.electrification.probe.Probe;
 import io.gifsync.septemcraft.processing.CreateRecipe;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import net.minecraft.tags.TagKey;
@@ -16,16 +18,22 @@ public final class Electrification
 {
 	private final Materials materials;
 
+	private final Probe probe;
+
 	/** Builds the module's features, registering what each of them adds. */
 	public Electrification(IEventBus modEventBus)
 	{
 		materials = new Materials(modEventBus);
+		probe = new Probe(modEventBus);
 	}
 
 	/** Every item the module registers, in the order a menu should show them. */
 	public List<RegistryObject<Item>> items()
 	{
-		return materials.items();
+		List<RegistryObject<Item>> items = new ArrayList<>(materials.items());
+		items.addAll(probe.items());
+
+		return List.copyOf(items);
 	}
 
 	/** The item that stands for the module in a menu. */
@@ -38,12 +46,14 @@ public final class Electrification
 	public void translations(LanguageProvider provider)
 	{
 		materials.translations(provider);
+		probe.translations(provider);
 	}
 
 	/** Models everything the module registers. */
 	public void models(ItemModelProvider provider)
 	{
 		materials.models(provider);
+		probe.models(provider);
 	}
 
 	/** Every recipe the module adds. */

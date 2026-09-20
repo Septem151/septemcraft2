@@ -198,8 +198,11 @@ dependencies {
 
     // Create and AE2. Hard dependencies per docs/00-decisions.md - there is no standalone mode, so
     // neither is optional and neither is branched around. Create's `all` artifact carries the Ponder,
-    // Flywheel and Registrate it needs as nested jars, so its own dependencies never need naming here.
+    // Flywheel and Registrate it needs as nested jars, so a runtime loading Create already holds
+    // them. Ponder is named all the same, compile-time only: KineticBlockEntity implements one of
+    // its interfaces, and javac resolves no method on a class whose supertypes it cannot read.
     implementation fg.deobf("com.simibubi.create:create-1.20.1:${create_version}:all")
+    compileOnly fg.deobf("net.createmod.ponder:Ponder-Forge-1.20.1:${ponder_version}")
     implementation fg.deobf("appeng:appliedenergistics2-forge:${ae2_version}")
     runtimeOnly fg.deobf("maven.modrinth:guideme:${guideme_version}")
 
@@ -294,3 +297,4 @@ tasks.named('test', Test).configure {
 tasks.named('build').configure {
     dependsOn 'gametestClasses'
 }
+
