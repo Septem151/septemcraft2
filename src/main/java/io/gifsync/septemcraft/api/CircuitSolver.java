@@ -77,7 +77,7 @@ public record CircuitSolver(int maxNodes)
 			}
 
 			CircuitReadings fresh = taken.get();
-			if (hasSettled(held, fresh))
+			if (hasSettled(held, fresh) && holds(analysis, fresh))
 			{
 				return fresh;
 			}
@@ -138,6 +138,22 @@ public record CircuitSolver(int maxNodes)
 		{
 			guesses[node] += ElectricalConstants.RELAXATION_FACTOR * (taken.voltage(node) - guesses[node]);
 		}
+	}
+
+	/**
+	 * Whether a reading is one the circuit is actually in, which is answered by asking the circuit
+	 * again at the potentials that reading took and seeing it hand the same ones back.
+	 *
+	 * <p>Two passes agreeing proposes an answer and does not establish one. A device that switches
+	 * at a potential the passes keep crossing reads alike twice running while the working potentials
+	 * behind those readings are still moving, and what it reads then is a device sitting above its
+	 * own minimum drawing nothing - which is a state no circuit is in.
+	 */
+	private static boolean holds(NodalAnalysis analysis, CircuitReadings proposed)
+	{
+		return analysis.readingsAt(proposed.potentials())
+			.filter(again -> hasSettled(proposed, again))
+			.isPresent();
 	}
 
 	/** Whether two passes agree closely enough everywhere that the circuit counts as settled. */

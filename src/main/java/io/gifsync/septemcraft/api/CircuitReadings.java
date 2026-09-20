@@ -54,6 +54,15 @@ final class CircuitReadings implements Solution
 		return voltages.length;
 	}
 
+	/**
+	 * What every node was read at, as a set of potentials a fresh pass can be taken at. A copy, so
+	 * that filling it in again leaves these readings as they were.
+	 */
+	double[] potentials()
+	{
+		return voltages.clone();
+	}
+
 	/** What the node at an index was read at, which is nothing where these readings do not reach it. */
 	double voltage(int node)
 	{

@@ -106,6 +106,32 @@ final class CircuitAssertions
 		}
 	}
 
+	/**
+	 * A circuit the solver answered reads as a state its devices are actually in: every device is
+	 * reported drawing what the potential reported across its own terminals has it draw. A device
+	 * sitting above its own minimum and reported drawing nothing fails this, and a reading like that
+	 * is a pass the solver stopped on rather than an answer the circuit holds.
+	 *
+	 * <p>A circuit the solver did not answer is exempt, its readings being the last pass taken and
+	 * never claimed to be final.
+	 */
+	static void assertAnswers(Circuit circuit, Solution solution)
+	{
+		if (solution.status() != SolutionStatus.SOLVED)
+		{
+			return;
+		}
+
+		for (Load load : circuit.loads())
+		{
+			Volts terminals = solution.across(load.from(), load.to());
+
+			assertEquals(load.drawAt(terminals).value(), solution.through(load).value(), BALANCED,
+				load + " is reported drawing " + solution.through(load) + " at " + terminals
+					+ ", which is not what it draws there");
+		}
+	}
+
 	/** The total a line is burning between all of its conductors. */
 	static double lineLoss(Circuit circuit, Solution solution)
 	{
