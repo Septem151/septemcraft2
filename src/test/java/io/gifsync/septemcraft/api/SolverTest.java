@@ -140,6 +140,47 @@ class SolverTest
 	}
 
 	/**
+	 * A device with no floor beneath it leaves the circuit both of its answers standing, and a solve
+	 * from rest still reaches the upper one. Nothing but that floor separated the two on the fixture
+	 * above, so this is where the starting point alone is doing the choosing.
+	 */
+	@Test
+	void aFeedWithNothingBeneathItStillReachesTheUpperAnswerFromRest()
+	{
+		Fixtures.Feed feed = Fixtures.floorlessFeed();
+
+		Solution solution = new CircuitSolver().solve(feed.circuit());
+
+		assertEquals(SolutionStatus.SOLVED, solution.status());
+		assertEquals(feed.stable().value(), solution.across(feed.farLive(), feed.farReturn()).value(), CLOSE);
+		CircuitAssertions.assertAnswers(feed.circuit(), solution);
+	}
+
+	/**
+	 * The collapsed answer is a point such a circuit falls away from rather than towards. Seeded
+	 * anywhere around it - just under, just over, or far either side - a device with no floor
+	 * beneath it still climbs out to the answer the line really runs at, so a grid that sagged on
+	 * one tick is not held down by what that tick left behind.
+	 */
+	@ParameterizedTest
+	@ValueSource(doubles = {0.0, 0.5, 0.9, 0.99, 1.01, 1.1, 1.5, 2.0, 3.0, 4.0})
+	void aFeedWithNothingBeneathItClimbsOutOfACollapseItIsSeededAround(double shareOfTheCollapse)
+	{
+		Fixtures.Feed feed = Fixtures.floorlessFeed();
+
+		Map<NodeId, Volts> seed = new HashMap<>();
+		seed.put(feed.reference(), Volts.ZERO);
+		seed.put(feed.live(), Fixtures.NOMINAL);
+		seed.put(feed.farLive(), new Volts(shareOfTheCollapse * feed.collapsed().value()));
+		seed.put(feed.farReturn(), Volts.ZERO);
+
+		Solution fromSeed = new CircuitSolver().solveFrom(feed.circuit(), seed);
+
+		assertEquals(SolutionStatus.SOLVED, fromSeed.status());
+		assertEquals(feed.stable().value(), fromSeed.across(feed.farLive(), feed.farReturn()).value(), CLOSE);
+	}
+
+	/**
 	 * The collapsed answer is the one a line sags into and does not climb out of, and it is only
 	 * reachable by a device that would still be running down there. A device that gives up above it
 	 * cannot hold the circuit in it, so the solver has one answer to find rather than the right one

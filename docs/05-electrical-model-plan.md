@@ -192,7 +192,15 @@ sensibly for the bus it is on leaves the solve one answer to find, and leaving t
 line is the lesson the transmission fixtures teach.
 
 **Where a device's minimum sits below the lower answer the circuit really does have two**, and the
-solve returns the upper. Start flat, at source electromotive force, and damp.
+solve returns the upper. Start flat at nothing and damp: a device holding its power draws nothing at
+no potential at all, so the first pass places none of them on the circuit and reads it open where
+they sit - above every potential the circuit can settle at - and the damping comes down onto the
+highest of them.
+
+The lower answer is a point the solve falls away from rather than towards: seeded a hundredth of it
+either side, a floorless device climbs back to the upper one, so a grid that sagged on one tick is
+not held down by the answer that tick left behind. Seeded at the lower answer exactly, a solve stays
+there, that answer being one the circuit does hold.
 
 On reaching `MAX_ITERATIONS` without settling, the last readings taken are held and the circuit
 reports itself unsettled - they balance, so what is missing is only that they are final. A line

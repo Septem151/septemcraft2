@@ -231,6 +231,22 @@ final class Fixtures
 	 */
 	static Feed singleFeed()
 	{
+		return feed(FEED_FLOOR);
+	}
+
+	/**
+	 * The same feed, its device running on whatever it is given. Nothing then stands between the
+	 * circuit and the collapsed answer it also satisfies, so what the solve lands on is the starting
+	 * point's doing and nothing else's.
+	 */
+	static Feed floorlessFeed()
+	{
+		return feed(NO_FLOOR);
+	}
+
+	/** The feed above, its device giving up below the potential named. */
+	private static Feed feed(Volts floor)
+	{
 		Blocks length = feedLength();
 		Ohms arm = ConductorForm.CATENARY_WIRE.resistanceOver(length);
 
@@ -243,7 +259,7 @@ final class Fixtures
 		Source source = builder.source(reference, live, NOMINAL, Ohms.ZERO);
 		Conductor out = builder.conductor(live, farLive, arm);
 		Conductor back = builder.conductor(farReturn, reference, arm);
-		Load load = builder.load(farLive, farReturn, LoadClass.CONSTANT_POWER, RATING, NOMINAL, FEED_FLOOR);
+		Load load = builder.load(farLive, farReturn, LoadClass.CONSTANT_POWER, RATING, NOMINAL, floor);
 
 		return new Feed(builder.build(), reference, live, farLive, farReturn, source, load, List.of(out, back),
 			new Ohms(2.0 * arm.value()));

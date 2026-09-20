@@ -31,7 +31,19 @@ public record CircuitSolver(int maxNodes)
 		this(ElectricalConstants.MAX_NODES_PER_CIRCUIT);
 	}
 
-	/** Solves a circuit from whatever the solver's own starting point is. */
+	/**
+	 * Solves a circuit from rest, every potential starting at nothing.
+	 *
+	 * <p>A device holding its power is the only one a pass has to be told what it is drawing, and
+	 * at no potential at all it draws nothing. The first pass therefore places no such device on
+	 * the circuit and reads it open where they sit, which is above every potential the circuit can
+	 * settle at; the damping then comes down onto the highest of them. That is the answer a line
+	 * really runs at, the collapsed one below it being the point such a circuit falls away from
+	 * rather than towards.
+	 *
+	 * <p>A circuit carrying the answer a previous tick left behind is solved from that answer with
+	 * {@link #solveFrom(Circuit, Map)} instead.
+	 */
 	public Solution solve(Circuit circuit)
 	{
 		return solveFrom(circuit, Map.of());
